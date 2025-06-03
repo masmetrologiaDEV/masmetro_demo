@@ -18,12 +18,8 @@
                     </div>
                     <div class="x_content">
                         <div class="row">
-                        <!--
-                                                    -->
-
-
                         <?php if($modulo != 'administrar/activos' | $this->session->privilegios['tickets_it_soporte']) { ?>
-                            <a style="cursor: pointer;" onclick="generarTicketIT()">
+                            <a style="cursor: pointer;" onclick="generarTicketIT('IT')">
                                 <div class="animated flipInY col-md-12 col-sm-12 col-xs-12">
                                     <div class="tile-stats">
                                         <div class="icon"><i class="fa fa-laptop"></i>
@@ -38,7 +34,7 @@
                         <div class="row">
                             <?php }
                           if($modulo != 'administrar/activos' | $this->session->privilegios['tickets_at_soporte']) { ?>
-                            <a href=<?= base_url('tickets_AT/'.$modulo); ?>>
+                            <a style="cursor: pointer;" onclick="generarTicketIT('AT')">
                                 <div class="animated flipInY col-md-12 col-sm-12 col-xs-12">
                                     <div class="tile-stats">
                                         <div class="icon"><i class="fa fa-automobile"></i>
@@ -52,7 +48,7 @@
                           <div class="row">
                             <?php }
                             if($modulo != 'administrar/activos' | $this->session->privilegios['tickets_ed_soporte']) { ?>
-                            <a href=<?= base_url('tickets_ED/'.$modulo); ?>>
+                            <a style="cursor: pointer;" onclick="generarTicketIT('ED')">
                                 <div class="animated flipInY col-md-12 col-sm-12 col-xs-12">
                                     <div class="tile-stats">
                                         <div class="icon"><i class="fa fa-building"></i>
@@ -72,8 +68,9 @@
                             <?php }
                             if($modulo == 'administrar/activos' && $this->session->privilegios['cafeteria']){ 
                                 ?>
-                                 <a href=<?= base_url('cafeteria/tickets'); ?>>
+                            
                                  <?php }?>
+                            <a style="cursor: pointer;" onclick="generarTicketIT('cafeteria')">     
                                 <div class="animated flipInY col-md-12 col-sm-12 col-xs-12">
                                     <div class="tile-stats">
                                         <div class="icon"><i class="fa fa-cutlery"></i>    
@@ -103,9 +100,11 @@
             </div>
 
             <div class="modal-body">
-                <p>
-                    Tienes 2 o mas Tickets de IT solucionados, es necesario cerrarlos para generar nuevos tickets.
-                </p>
+
+               <p id="mensaje">
+                   
+                </p> 
+
             </div>
 
             <div class="modal-footer">
@@ -154,9 +153,26 @@ if (isset($this->session->aciertos)) {
 }
 ?>
 
-function generarTicketIT()
+function generarTicketIT(tipo)
 {
-    var modulo = '<?= $modulo ?>';
+     var modulo = '<?= $modulo ?>';
+    var link = null;
+
+    switch (tipo){
+        case 'IT':
+            link = base_url+"tickets_IT/" + modulo;
+            break;
+        case 'AT':
+            link = base_url+"tickets_AT/" + modulo;
+            break;
+        case 'ED':
+            link = base_url+"tickets_ED/" + modulo;
+            break;
+        case 'cafeteria':
+            link = base_url+"cafeteria/"+ modulo;
+            break;
+    }
+
 
     if(modulo == "generar")
     {
@@ -164,17 +180,25 @@ function generarTicketIT()
         $.ajax({
             type: "POST",
             url: URL,
-            data: { usuario : USER },
+            data: { usuario : USER, tipo : tipo },
             success: function(result) {
                 if(result)
                 {
                     var rs = JSON.parse(result);
-                    if(rs.Conteo > 1)
+                    if(rs.Conteo >= 2)
                     {
+                        if (tipo=='IT') {
+                            document.getElementById("mensaje").textContent = " Tienes 2 o mas Tickets de IT solucionados, es necesario cerrarlos para generar nuevos tickets.";
+                        }else if(tipo=='AT'){
+                            document.getElementById("mensaje").textContent = " Tienes 2 o mas Tickets de Autos solucionados, es necesario cerrarlos para generar nuevos tickets.";
+                        }else if(tipo=='ED'){
+                            document.getElementById("mensaje").textContent = " Tienes 2 o mas Tickets de Edificio solucionados, es necesario cerrarlos para generar nuevos tickets.";
+                        }else if(tipo=='cafeteria'){
+                            document.getElementById("mensaje").textContent = " Tienes 2 o mas Tickets de Cafeteria solucionados, es necesario cerrarlos para generar nuevos tickets.";
+                        }
                         $('#mdl').modal();
-                    }
-                    else{
-                        $.redirect( base_url + "tickets_IT/generar");
+                    }else{
+                        $.redirect(link);
                     }
                 }
             },
@@ -182,7 +206,7 @@ function generarTicketIT()
     }
     else
     {
-        $.redirect(base_url + "tickets_IT/" + modulo);
+        $.redirect(link);
     }
 }
 

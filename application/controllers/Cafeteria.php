@@ -11,7 +11,7 @@ class Cafeteria extends CI_Controller {
          $this->load->library('AOS_funciones');
     }
 
-    public function index() {
+    public function generar() {
         $this->load->view('header');
         $this->load->view('cafeteria/cafeteria');
         //$this->load->view('test/chat');
@@ -36,7 +36,7 @@ class Cafeteria extends CI_Controller {
         $datosCorreo['correo'] = $this->session->correo;
         $datosCorreo['categoria'] = $this->input->post('opCategoria');
         $datosCorreo['fecha_incidencia'] = $this->input->post('fecha_incidencia');
-        $this->correos->comentarios_cafeteria($datosCorreo);
+       // $this->correos->comentarios_cafeteria($datosCorreo);
         redirect(base_url('cafeteria/archivos/') . $last_id);
     }
     function archivos($id_ticket) {
@@ -159,10 +159,30 @@ class Cafeteria extends CI_Controller {
         $this->load->view('header');
         $this->load->view('cafeteria/mis_tickets', $datos);
     }
-    public function tickets() {
+    public function administrar() {
         $datos['tickets'] = $this->Modelo->get_tickets($this->session->id);
         $this->load->view('header');
         $this->load->view('cafeteria/tickets', $datos);
+    }
+    function ajax_cerrarTicket(){
+        $id = $this->input->post('id');
+        $comentario = $this->input->post('comentario');
+        $t->calificacion = $this->input->post('calificacion');
+        $t->estatus = "CERRADO";
+
+
+        $this->Conexion->modificar('comentarios_cafeteria', $t, null, array('id' => $id));
+
+        if(!empty($comentario))
+        {
+            $data = array(
+                'ticket' => $id,
+                'usuario' => $this->session->id,
+                'comentario' => $comentario
+            );
+            $this->Modelo->agregar_comentario($data);
+        }
+
     }
 
 
