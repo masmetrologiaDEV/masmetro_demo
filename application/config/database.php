@@ -75,13 +75,9 @@ $query_builder = TRUE;
 
 $db['default'] = array(
 	'dsn'	=> '',
-/*	'hostname' => 'localhost',
-	'username' => 'aleks',
-	'password' => 'masmetrolog14',
-	'database' => 'masmetro',*/
-	'hostname' => '192.168.6.22',
-	'username' => 'jose',
-	'password' => '123456789',
+	'hostname' => '192.168.6.14',
+    'username' => 'jose',
+    'password' => 'Temp1234@',
 	'database' => 'masmetro',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
