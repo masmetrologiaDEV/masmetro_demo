@@ -54,7 +54,25 @@ function camaras(){
 
     function ajax_getTicketsSolucionados(){
         $user = $this->input->post('usuario');
-        $res = $this->Conexion->consultar("SELECT count(*) as Conteo FROM tickets_sistemas where usuario = '$user' and estatus = 'SOLUCIONADO'", TRUE);
+        $tipo = $this->input->post('tipo');
+        $tabla= null;
+        $usuario = 'usuario';
+
+if ($tipo=='IT') {
+    $tabla='tickets_sistemas';
+}else if ($tipo=='AT') {
+     $tabla='tickets_autos';
+}
+else if ($tipo=='ED') {
+     $tabla='tickets_edificio';
+}
+else if ($tipo=='cafeteria') {
+     $tabla='comentarios_cafeteria';
+     $usuario = 'id_user';
+}
+
+
+        $res = $this->Conexion->consultar("SELECT count(*) as Conteo FROM $tabla where $usuario = '$user' and estatus = 'SOLUCIONADO'", TRUE);
         if($res)
         {
             echo json_encode($res);   
@@ -111,75 +129,107 @@ $query = "SELECT 'IT' as tipo, T.id, T.usuario, concat(U.nombre,' ',U.paterno) a
 
     }
 function ajax_getTicktesIT(){
-        $query = 'SELECT count(*) as Total, (SELECT count(*) FROM tickets_sistemas where estatus = "ABIERTO") as Abiertos, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "ABIERTO") as ultAbiertos, 
-                    (SELECT count(*) FROM tickets_sistemas where estatus = "EN CURSO") as Curso, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "EN CURSO") as ultCurso, 
-		    (SELECT count(*) FROM tickets_sistemas where estatus = "EN REVISION") as Revision, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "EN REVISION") as ultRevision,
-                    (SELECT count(*) FROM tickets_sistemas where estatus = "DETENIDO") as Detenido, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "DETENIDO") as ultDetenido, 
-                    (SELECT count(*) FROM tickets_sistemas where estatus = "SOLUCIONADO") as Solucionado, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "SOLUCIONADO") as ultSolucionado, 
-                    (SELECT count(*) FROM tickets_sistemas where estatus = "CERRADO") as Cerrado, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "CERRADO") as ultCerrado, 
-                    (SELECT count(*) FROM tickets_sistemas where estatus = "CANCELADO") as Cancelado, 
-                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "CANCELADO") as ultCancelado FROM tickets_sistemas';
+     $periodo_it = $this->input->post('periodo_it');
+        $periodo=null;
+        $usF=null;
+        if ($periodo_it != 'TODO') {
+            $periodo =' and fecha like "%'.$periodo_it.'%"';
+            //$usF =' where asignado ='.$asignado;
+            
+        }
+        $query = 'SELECT count(*) as Total, (SELECT count(*) FROM tickets_sistemas where estatus = "ABIERTO"'.$periodo.') as Abiertos, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "ABIERTO"'.$periodo.') as ultAbiertos, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "EN CURSO"'.$periodo.') as Curso, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "EN CURSO"'.$periodo.') as ultCurso, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "EN REVISION"'.$periodo.') as Revision, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "EN REVISION"'.$periodo.') as ultRevision, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "DETENIDO"'.$periodo.') as Detenido, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "DETENIDO"'.$periodo.') as ultDetenido, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "SOLUCIONADO"'.$periodo.') as Solucionado, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "SOLUCIONADO"'.$periodo.') as ultSolucionado, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "CERRADO"'.$periodo.') as Cerrado, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "CERRADO"'.$periodo.') as ultCerrado, 
+                    (SELECT count(*) FROM tickets_sistemas where estatus = "CANCELADO"'.$periodo.') as Cancelado, 
+                    (SELECT max(fecha) FROM tickets_sistemas where estatus = "CANCELADO"'.$periodo.') as ultCancelado FROM tickets_sistemas where 1=1 '.$periodo;
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
      function ajax_getTicktesAutos(){
+        $periodo_at = $this->input->post('periodo_at');
+        $periodo=null;
+        $usF=null;
+        if ($periodo_at != 'TODO') {
+            $periodo =' and fecha like "%'.$periodo_at.'%"';
+            //$usF =' where asignado ='.$asignado;
+            
+        }
         $query = 'SELECT count(*) as Total, 
-        (SELECT count(*) FROM tickets_autos where estatus = "ABIERTO") as Abiertos, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "ABIERTO") as ultAbiertos, 
-        (SELECT count(*) FROM tickets_autos where estatus = "EN CURSO") as Curso, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "EN CURSO") as ultCurso, 
-        (SELECT count(*) FROM tickets_autos where estatus = "DETENIDO") as Detenido, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "DETENIDO") as ultDetenido,
-        (SELECT count(*) FROM tickets_autos where estatus = "SOLUCIONADO") as Solucionado, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "SOLUCIONADO") as ultSolucionado, 
-        (SELECT count(*) FROM tickets_autos where estatus = "CERRADO") as Cerrado, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "CERRADO") as ultCerrado, 
-        (SELECT count(*) FROM tickets_autos where estatus = "CANCELADO") as Cancelado, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "CANCELADO") as ultCancelado FROM tickets_autos';
+        (SELECT count(*) FROM tickets_autos where estatus = "ABIERTO"'.$periodo.') as Abiertos, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "ABIERTO"'.$periodo.') as ultAbiertos, 
+        (SELECT count(*) FROM tickets_autos where estatus = "EN CURSO"'.$periodo.') as Curso, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "EN CURSO"'.$periodo.') as ultCurso, 
+        (SELECT count(*) FROM tickets_autos where estatus = "DETENIDO"'.$periodo.') as Detenido, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "DETENIDO"'.$periodo.') as ultDetenido,
+        (SELECT count(*) FROM tickets_autos where estatus = "SOLUCIONADO"'.$periodo.') as Solucionado, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "SOLUCIONADO"'.$periodo.') as ultSolucionado, 
+        (SELECT count(*) FROM tickets_autos where estatus = "CERRADO"'.$periodo.') as Cerrado, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "CERRADO"'.$periodo.') as ultCerrado, 
+        (SELECT count(*) FROM tickets_autos where estatus = "CANCELADO"'.$periodo.') as Cancelado, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "CANCELADO"'.$periodo.') as ultCancelado FROM tickets_autos where 1=1 '.$periodo;
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
     function ajax_getTicktesEdificio(){
+        $periodo_ed = $this->input->post('periodo_ed');
+        $periodo=null;
+        $usF=null;
+        if ($periodo_ed != 'TODO') {
+            $periodo =' and fecha like "%'.$periodo_ed.'%"';
+            //$usF =' where asignado ='.$asignado;
+            
+        }
         $query = 'SELECT count(*) as Total, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "ABIERTO") as Abiertos, 
-        (SELECT max(fecha) FROM tickets_edificio where estatus = "ABIERTO") as ultAbiertos, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "EN CURSO") as Curso, 
-        (SELECT max(fecha) FROM tickets_edificio where estatus = "EN CURSO") as ultCurso, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "DETENIDO") as Detenido, 
-        (SELECT max(fecha) FROM tickets_edificio where estatus = "DETENIDO") as ultDetenido, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "SOLUCIONADO") as Solucionado, 
-        (SELECT max(fecha) FROM tickets_edificio where estatus = "SOLUCIONADO") as ultSolucionado, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "CERRADO") as Cerrado, 
-        (SELECT max(fecha) FROM tickets_autos where estatus = "CERRADO") as ultCerrado, 
-        (SELECT count(*) FROM tickets_edificio where estatus = "CANCELADO") as Cancelado, 
-        (SELECT max(fecha) FROM tickets_edificio where estatus = "CANCELADO") as ultCancelado FROM tickets_edificio';
+        (SELECT count(*) FROM tickets_edificio where estatus = "ABIERTO"'.$periodo.') as Abiertos, 
+        (SELECT max(fecha) FROM tickets_edificio where estatus = "ABIERTO"'.$periodo.') as ultAbiertos, 
+        (SELECT count(*) FROM tickets_edificio where estatus = "EN CURSO"'.$periodo.') as Curso, 
+        (SELECT max(fecha) FROM tickets_edificio where estatus = "EN CURSO"'.$periodo.') as ultCurso, 
+        (SELECT count(*) FROM tickets_edificio where estatus = "DETENIDO"'.$periodo.') as Detenido, 
+        (SELECT max(fecha) FROM tickets_edificio where estatus = "DETENIDO"'.$periodo.') as ultDetenido, 
+        (SELECT count(*) FROM tickets_edificio where estatus = "SOLUCIONADO"'.$periodo.') as Solucionado, 
+        (SELECT max(fecha) FROM tickets_edificio where estatus = "SOLUCIONADO"'.$periodo.') as ultSolucionado, 
+        (SELECT count(*) FROM tickets_edificio where estatus = "CERRADO"'.$periodo.') as Cerrado, 
+        (SELECT max(fecha) FROM tickets_autos where estatus = "CERRADO"'.$periodo.') as ultCerrado, 
+        (SELECT count(*) FROM tickets_edificio where estatus = "CANCELADO"'.$periodo.') as Cancelado, 
+        (SELECT max(fecha) FROM tickets_edificio where estatus = "CANCELADO"'.$periodo.') as ultCancelado FROM tickets_edificio where 1=1 '.$periodo;
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
     function ajax_getTicktesCafeteria(){
+        $periodo_ca = $this->input->post('periodo_ca');
+        $periodo=null;
+        $usF=null;
+        if ($periodo_ca != 'TODO') {
+            $periodo =' and fecha like "%'.$periodo_ca.'%"';
+            //$usF =' where asignado ='.$asignado;
+            
+        }
         $query = 'SELECT count(*) as Total, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "ABIERTO") as Abiertos, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "ABIERTO") as ultAbiertos, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "EN CURSO") as Curso, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "EN CURSO") as ultCurso, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "DETENIDO") as Detenido, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "DETENIDO") as ultDetenido, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "SOLUCIONADO") as Solucionado, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "SOLUCIONADO") as ultSolucionado, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "CERRADO") as Cerrado, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "CERRADO") as ultCerrado, 
-        (SELECT count(*) FROM comentarios_cafeteria where estatus = "CANCELADO") as Cancelado, 
-        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "CANCELADO") as ultCancelado FROM comentarios_cafeteria';
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "ABIERTO"'.$periodo.') as Abiertos, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "ABIERTO"'.$periodo.') as ultAbiertos, 
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "EN CURSO"'.$periodo.') as Curso, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "EN CURSO"'.$periodo.') as ultCurso, 
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "DETENIDO"'.$periodo.') as Detenido, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "DETENIDO"'.$periodo.') as ultDetenido, 
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "SOLUCIONADO"'.$periodo.') as Solucionado, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "SOLUCIONADO"'.$periodo.') as ultSolucionado, 
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "CERRADO"'.$periodo.') as Cerrado, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "CERRADO"'.$periodo.') as ultCerrado, 
+        (SELECT count(*) FROM comentarios_cafeteria where estatus = "CANCELADO"'.$periodo.') as Cancelado, 
+        (SELECT max(fecha) FROM comentarios_cafeteria where estatus = "CANCELADO"'.$periodo.') as ultCancelado FROM comentarios_cafeteria where 1=1'.$periodo;
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
-function ajax_getCamaras(){
+    function ajax_getCamaras(){
          $res = $this->Conexion->consultar("SELECT * FROM camaras");
         if($res)
         {
