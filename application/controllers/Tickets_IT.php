@@ -6,6 +6,7 @@ class Tickets_IT extends CI_Controller {
 
     function __construct() {
         parent::__construct();
+        $this->load->library('unit_test');
         $this->load->model('tickets_IT_model', 'Modelo');
         $this->load->model('conexion_model', 'Conexion');
         $this->load->library('correos');
@@ -64,11 +65,15 @@ class Tickets_IT extends CI_Controller {
 	$count = $this->Modelo->getTicketsCount();
 	$datos['usuarios'] = $this->privilegios_model->listadoJefes();
         $datos['c_activos'] = $count->activos;
+
+        $datos['c_detenidos'] = $count->detenidos;
+
         $datos['c_solucionados'] = $count->solucionados;
         $datos['c_cerrados'] = $count->cerrados;
         $datos['c_cancelados'] = $count->cancelados;
-	$datos['c_revision'] = $count->revision;
+        $datos['c_revision'] = $count->revision;
         $datos['c_todos'] = $count->todos;
+
 
         $datos['filtro'] = $estatus;
         $datos['tickets'] = $this->Modelo->getTickets($estatus);
@@ -78,14 +83,8 @@ class Tickets_IT extends CI_Controller {
     }
 
     function registrar() {
-        if($usuario_id){
-           $pendientes = $this->Modelo->tickets_solucionados_pendientes($usuario_id);
-    if ($pendientes >= 2) {
-        $this->session->set_flashdata('error', 'Tienes 2 o más tickets solucionados que aún no has cerrado. Por favor ciérralos antes de crear uno nuevo.');
-        redirect(base_url('tickets_IT/nuevo')); // O la vista donde creas tickets
-        return;
-    } 
-        }
+      
+
         $data = array(
             'usuario' => $this->session->id,
             'tipo' => $this->input->post('opCategoria'),
@@ -178,7 +177,7 @@ class Tickets_IT extends CI_Controller {
                 $usuario = $Res->User;
                 break;
 
-	   case '7':
+            case '7':
                 $Stat = 'EN REVISION';
                 $correo = $Res->correo;
                 $usuario = $Res->User;
@@ -266,26 +265,60 @@ class Tickets_IT extends CI_Controller {
 
 function excel(){
         $estatus= $this->input->post('estatus');
+
         $user= $this->input->post('user');
         $fecha1 = $this->input->post('fecha1');
         $fecha2 = $this->input->post('fecha2');
         $f1=strval($fecha1).' 00:00:00';
         $f2=strval($fecha2).' 23:59:59';
-        
-//        $query = "SELECT t.id as No_Ticket,t.fecha as Fecha_Ticket,t.tipo as Tipo,t.titulo as Titulo,t.descripcion as Descripcion,t.estatus as Estatus, tc.fecha as fecha_comentario,tc.comentario as Comentario, concat(u.nombre,' ', u.paterno) as Cerador_Ticket FROM tickets_sistemas t JOIN tickets_sistemas_comentarios tc on t.id=tc.ticket JOIN usuarios u on t.usuario = u.id where 1=1 ";
-	$query = "SELECT t.id as No_Ticket,t.fecha as Fecha_Ticket,t.fecha_cierre, concat(s.nombre, ' ', s.paterno) as solucionador, t.tipo as Tipo,t.titulo as Titulo,t.descripcion as Descripcion,t.estatus as Estatus, tc.fecha as fecha_comentario,tc.comentario as Comentario, concat(u.nombre,' ', u.paterno) as Cerador_Ticket FROM tickets_sistemas t JOIN tickets_sistemas_comentarios tc on t.id=tc.ticket JOIN usuarios u on t.usuario = u.id JOIN usuarios s on t.cierre=s.id where 1=1 ";
 
+        ///agregar comentarios y fecha del comentario en un solo renglon
+        $query = " SELECT t.id as No_Ticket, t.fecha as Fecha_Ticket, t.tipo as Tipo, t.titulo as Titulo, t.descripcion as Descripcion, t.estatus as Estatus, t.fecha_cierre,
+    CONCAT(s.nombre, ' ', s.paterno) AS solucionador,
+    GROUP_CONCAT(
+        CONCAT(DATE_FORMAT(tc.fecha, '%d/%m/%Y %H:%i'), ' - ', tc.comentario)
+        SEPARATOR '\n'
+    ) AS Comentarios,
+    CONCAT(u.nombre, ' ', u.paterno) AS Creador_Ticket
+FROM tickets_sistemas t
+    LEFT JOIN tickets_sistemas_comentarios tc ON t.id = tc.ticket
+    LEFT JOIN usuarios s ON t.cierre = s.id
+    JOIN usuarios u ON t.usuario = u.id
+    WHERE 1=1 ";
+
+
+
+        
+        //agregar filtros
+        if ($estatus) {
+            if ($estatus=='activos') {
+            $query .=" and (t.estatus = 'EN CURSO' OR t.estatus = 'ABIERTO')";
+            }else if ($estatus=='revision') {
+                $query .=" and t.estatus = 'EN REVISION'";
+            }
+            else if ($estatus=='solucionados') {
+                $query .=" and t.estatus = 'SOLUCIONADO'";
+            }
+            else if ($estatus=='cerrados') {
+                $query .=" and t.estatus = 'CERRADO'";
+            }
+            else if ($estatus=='cancelados') {
+                $query .=" and t.estatus = 'CANCELADO'";
+            }
+            else if ($estatus=='detenidos') {
+                $query .=" and t.estatus = 'DETENIDO'";
+            }
+
+            //$query .=" and t.estatus = '$esta'";
+        }
         if (!empty($user)) {
             $query .=" and t.usuario = '$user'";
-        }
-        if ($estatus!='TODOS') {
-            $query .=" and t.estatus = '$estatus'";
         }
         if (!empty($fecha1) && !empty($fecha2)) {
             $query .=" and t.fecha BETWEEN '".$f1."' AND '".$f2."'";
         }
-
-     
+        
+        $query .= " GROUP BY t.id";
         $query .=" ORDER BY t.id";
         //echo $query;die();
         $result= $this->Conexion->consultar($query);
@@ -303,28 +336,40 @@ function excel(){
                                     <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Estatus</th>
                                     <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Fecha Cierre</th>
                                     <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Solucionado</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Fecha_Comentario</th>
                                     <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Comentario</th>
                                     <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Creador Ticket</th>
+
                                 </tr>
                             </thead>
                             <tbody>';
+
+if (!$result || !is_array($result)) {
+    echo "No se encontraron resultados o hubo un error en la consulta.";
+    return;
+}
+
+
         foreach($result as $row){
-            
+
+            //lineas reemplazadas por nl2br($row->Comentarios)
+
+            // <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha_comentario.'</td>
+            // <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Comentario.'</td>
 
             $salida .='
                         <tr>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->No_Ticket.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Fecha_Ticket.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Tipo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Titulo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Descripcion.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Estatus.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha_cierre.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->solucionador.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha_comentario.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Comentario.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Cerador_Ticket.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->No_Ticket.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Fecha_Ticket.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Tipo.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Titulo.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Descripcion.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Estatus.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha_cierre.'</td>
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->solucionador.'</td>
+                            
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">' . nl2br($row->Comentarios) . '</td>
+
+                            <td style="color: #444;  border: 1px solid black; border-collapse: collapse">'.$row->Creador_Ticket.'</td>
                         </tr>';
              }
 
@@ -341,6 +386,10 @@ function excel(){
         header('Content-Transfer-Encoding: binary'); 
         echo $salida;
     }
+
+
+
+
 
     function reporte_it()
     {
@@ -434,6 +483,9 @@ function excel(){
                                 </tr>
                             </thead>
                             <tbody>';
+
+                           
+
         foreach($result as $row){
             
 
@@ -465,4 +517,52 @@ function excel(){
         echo $salida;
     }
 
+
+
+
+    function buscar_tickets(){
+    $estatus = $this->input->post('estatus');
+    $user = $this->input->post('user');
+    $fecha1 = $this->input->post('fecha1');
+    $fecha2 = $this->input->post('fecha2');
+
+    $f1 = (!empty($fecha1)) ? $fecha1 : null;
+    $f2 = (!empty($fecha2)) ? $fecha2 : null;
+
+    $res = $this->Modelo->getTickets($estatus, $user, $f1, $f2);
+//echo var_dump($res);die();
+    echo json_encode($res ?: []);
+}
+public function prueba_buscar_tickets()
+{
+    // Simulamos entradas POST
+    $_POST['estatus'] = 'activos';
+    //$_POST['user'] = '1';
+    /*$_POST['fecha1'] = '2024-01-01';
+    $_POST['fecha2'] = '2024-12-31';*/
+
+    // Obtenemos las variables como en la función original
+    $estatus = $this->input->post('estatus');
+    $user = $this->input->post('user');
+    $fecha1 = $this->input->post('fecha1');
+    $fecha2 = $this->input->post('fecha2');
+
+    $f1 = (!empty($fecha1)) ? $fecha1 : null;
+    $f2 = (!empty($fecha2)) ? $fecha2 : null;
+
+    // Llamamos el modelo directamente
+    $res = $this->Modelo->getTickets($estatus, $user, $f1, $f2);
+    //echo var_dump($res);die();
+
+    // Verificamos que $res sea un array (o el tipo que esperes)
+    echo $this->unit->run(is_array($res), TRUE, 'getTickets devuelve un arreglo');
+
+    // Si hay resultados, verificamos su estructura (opcional)
+    if (!empty($res)) {
+        echo $this->unit->run(isset($res[0]['id']), TRUE, 'El ticket tiene ID');
+        echo $this->unit->run(isset($res[0]['estatus']), TRUE, 'El ticket tiene estatus');
+    } else {
+        echo $this->unit->run(true, true, 'No hay tickets, pero respuesta válida');
+    }
+}
 }

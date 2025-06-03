@@ -11,21 +11,21 @@ class Tickets_AT extends CI_Controller {
         $this->load->library('correos');
     }
 
-    public function generar() {
-      //$this->output->enable_profiler(TRUE);
-        $this->load->model('autos_model');
-        $auto = $this->input->post('auto');
-        if(isset($this->session->POST_auto))
-        {
-          $auto = $this->session->POST_auto;
-          $this->session->unset_userdata('POST_auto');
-        }
+public function generar() {
 
-        if(isset($auto))
-        {
-          $datosCoche = $this->autos_model->getAuto($auto);
-          if($datosCoche)
-          {
+    $this->load->model('autos_model');
+    $this->load->model('Tickets_AT_model');
+
+
+    $auto = $this->input->post('auto');
+    if (isset($this->session->POST_auto)) {
+        $auto = $this->session->POST_auto;
+        $this->session->unset_userdata('POST_auto');
+    }
+
+    if (isset($auto)) {
+        $datosCoche = $this->autos_model->getAuto($auto);
+        if ($datosCoche) {
             $datos['foto'] = $datosCoche->foto;
             $datos['marca'] = $datosCoche->marca;
             $datos['combustible'] = $datosCoche->combustible;
@@ -33,18 +33,16 @@ class Tickets_AT extends CI_Controller {
             $datos['auto'] = $auto;
             $this->load->view('header');
             $this->load->view('generar_ticket_auto', $datos);
-          }
-          else
-          {
+        } else {
             redirect(base_url('inicio'));
-          }
         }
-        else {
-          $datos['autos'] = $this->autos_model->getCatalogo();
-          $this->load->view('header');
-          $this->load->view('tickets_autos/seleccion',$datos);
-        }
+    } else {
+        $datos['autos'] = $this->autos_model->getCatalogo();
+        $this->load->view('header');
+        $this->load->view('tickets_autos/seleccion', $datos);
     }
+}
+
 
     public function generar_qr($id){
       $this->session->POST_auto = $id;
@@ -112,6 +110,8 @@ class Tickets_AT extends CI_Controller {
       $datos['c_cancelados'] = $count->cancelados;
       $datos['c_revision'] = $count->revision;
       $datos['c_todos'] = $count->todos;
+      $datos['c_detenidos'] = $count->detenidos;
+
 
       $datos['filtro'] = $estatus;
       $datos['tickets'] = $this->Modelo->getTickets($estatus);

@@ -35,7 +35,7 @@ class Tickets_ED_model extends CI_Model {
         $this->db->order_by('TE.fecha', 'DESC');
         $query = $this->db->get();
         if ($query->num_rows() > 0) {
-            return $query;
+            return $query->result_array();
         } else {
             return false;
         }
@@ -44,6 +44,7 @@ class Tickets_ED_model extends CI_Model {
     function getTicketsCount(){
       $comando = "count(*) as todos";
       $comando .=", (SELECT count(*) from tickets_edificio where (estatus = 'ABIERTO' or estatus = 'DETENIDO' or estatus = 'EN CURSO')) as activos";
+      $comando .= ", (SELECT count(*) from tickets_autos where estatus = 'DETENIDO') as detenidos";
       $comando .= ", (SELECT count(*) from tickets_sistemas where (estatus = 'EN REVISION')) as revision";
       $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'SOLUCIONADO')) as solucionados";
       $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'CERRADO')) as cerrados";

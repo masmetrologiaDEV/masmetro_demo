@@ -61,8 +61,21 @@
                         <input id="asunto" type='text' class="form-control" />
                       </div>
                 </div>
+<!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  -->
+<!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  -->
 
+ <div class="form-group">
+  <label for="sala" class="col-sm-3 control-label">Sala:</label>
+  <div class="col-sm-9 input-group">
+    <select name="sala" id="sala" class="form-control" required>
+      <option value="1">Sala 1</option>
+      <option value="2">Sala 2</option>
+    </select>
+  </div>
+</div>
 
+<!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  -->
+<!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  --><!--  --> <!--  --> <!--  -->               
                 <div class="form-group">
                     <label class="col-sm-3 control-label">Inicia:</label>
                     <div class='col-sm-9 input-group date' id='timeInicia'>
@@ -84,7 +97,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="col-sm-3 control-label">Agenda:</label>
+                    <label class="col-sm-3 control-label">Notas:</label>
                     <div class='col-sm-9 input-group date'>
                         <textarea id="notas" class="form-control" ></textarea>
                     </div>
@@ -128,6 +141,9 @@
               <center style="font-size: 20px;">
                 <label style="font-size: 15px;" class="col-sm-12 control-label" id="modalViewDate"></label>
                 <label class="col-sm-12 control-label" id="modalViewUsuario">Usuario</label>
+<!-- vista de la sala ocupada -->
+                <label class="col-sm-12 control-label" id="modalViewSala">Sala</label>
+
                 <label class="col-sm-12 control-label" id="modalViewInicia">Inicia</label>
                 <label class="col-sm-12 control-label" id="modalViewTermina">Termina</label>
                 <label class="col-sm-12 control-label" id="modalViewNotes">Notas</label>
@@ -167,182 +183,17 @@
 
     <!-- Custom Theme Scripts -->
     <script src=<?= base_url("template/build/js/custom.js"); ?>></script>
-    <script>
-
-      $(function () {
-        $("#cbreunion").click(function () {
-            if ($(this).is(":checked")) {
-                $("#correos").show();
-            } else {
-              document.getElementById('tags_1').value = '';
-                $("#correos").hide();
-            }
-        });
-
-        $('#tags_1').tagsInput({
-        width: 'auto',
-        defaultText: 'Correos',
-      });
-    });
-
-
-    var dia; var cal; var idEvento;
-
-    cal = $('#calendar').fullCalendar({
-      header: {
-      left: 'prev,next, today',
-      center: 'title',
-      right: 'month,agendaWeek,agendaDay,listMonth'
-      },
-      locale: 'es',
-      timeFormat: 'h(:mm)',
-      events: "<?= base_url("agenda/getEventos"); ?>",
-
-      dayClick: function(date){
-          $("#modalNewTitle").html("Reservar sala de Juntas: " + date.format("D-MMM-Y"));
-          $('#inicia').val(date.format("h:mm A"));
-          $('#termina').val(date.format("h:mm A"));
-          dia = date.format();
-          $("#modalNew").modal();
-      },
-
-      eventClick: function(evento){
-          $("#modalViewTitle").html(evento.title + ": " + evento.start.format("D-MMM-Y"));
-          $("#modalViewUsuario").html("Usuario: " + evento.User);
-          $("#modalViewInicia").html("Inicia: " + evento.start.format("hh:mm A"));
-          $("#modalViewTermina").html("Termina: " + evento.end.format("hh:mm A"));
-          $("#modalViewDate").html("Creado: " + moment(evento.fecha).format('YYYY-MM-D h:mm:ss a'));
-          idEvento = evento.id;
-          if(evento.usuario == "<?= $this->session->id ?>")
-          {
-            $("#modalCancel").show();
-          }else{
-            $("#modalCancel").hide();
-          }
-          if(evento.descripcion.length == 0){
-            $("#modalViewNotes").html("");
-          }else{
-            $("#modalViewNotes").html("Notas: " + evento.descripcion);
-          }
-          $("#modalView").modal();
-      }
-    });
-function validar() {
-      var inicia = $('#inicia').val();
-      var termina = $('#termina').val();
-      var i = new Date(dia + " " + inicia);
-      var t = new Date(dia + " " + termina);
-      inicia = i.getFullYear() + "-" + (i.getMonth() + 1) + "-" + paddy(i.getDate(),2) + " " + i.getHours() + ":" + paddy(i.getMinutes(),2);
-      termina = t.getFullYear() + "-" + (t.getMonth() + 1) + "-" + paddy(t.getDate(),2) + " " + t.getHours() + ":" + paddy(t.getMinutes(),2);
-
-
-      if ($('#cbreunion').is(":checked")) {
-
-        if (document.getElementById("tags_1").value.length == 0) {
-        alert('El campo correos esta vacio.')
-
-      }
-
-      }
-
-      if (document.getElementById("asunto").value.length == 0) {
-        alert('El asunto esta vacio.')
-
-      }
-      else if (document.getElementById("notas").value.length == 0) {
-        alert('Ingresar agenda del evento.')
-      }else{
-
-$.ajax({
-            type: "POST",
-            url: '<?= base_url('agenda/validacion') ?>',
-            data: { inicia : inicia, termina : termina},
-            success: function(result){
-              if (result) {
-                alert("Sala Ocupada");
-              }else{
-                  crearEvento();
-              }
-              
-            },
-            error: function(data){
-              alert("Error");
-              console.log(data);
-            },
-          });
-}
-}
-    function crearEvento(){
-     /*ESTO*/var asunto =$('#asunto').val();
-      var inicia = $('#inicia').val();
-      var termina = $('#termina').val();
-      var descripcion = $('#notas').val();
-      var reunion = $("#cbreunion").is(":checked") ? 1 : 0;
-      var tags_1 = $('#tags_1').val();
-
-      var i = new Date(dia + " " + inicia);
-      var t = new Date(dia + " " + termina);
-      inicia = i.getFullYear() + "-" + (i.getMonth() + 1) + "-" + paddy(i.getDate(),2) + " " + i.getHours() + ":" + paddy(i.getMinutes(),2);
-      termina = t.getFullYear() + "-" + (t.getMonth() + 1) + "-" + paddy(t.getDate(),2) + " " + t.getHours() + ":" + paddy(t.getMinutes(),2);
-
-      console.log(inicia);
-      console.log(termina);
-
-      if(moment(inicia) < moment(termina))
-      {
-        $.ajax({
-            type: "POST",
-            url: '<?= base_url('agenda/crearEvento') ?>',
-            data: { 'titulo' : asunto, 'inicia' : inicia, 'termina' : termina, 'descripcion' : descripcion, 'reunion' : reunion, 'tags_1' : tags_1 },
-            success: function(result){
-              cal.fullCalendar('renderEvent', {
-                id: result,
-                title: 'SALA DE JUNTAS',
-                usuario: '<?= $this->session->id; ?>',
-                User: '<?= $this->session->nombre; ?>',
-                fecha: moment().format('YYYY-MM-D h:mm:ss a'),
-                descripcion: descripcion,
-                start: i,
-                end: t,
-                allDay: false
-                },
-              );
-            },
-            error: function(data){
-              alert("Error");
-              console.log(data);
-            },
-          });
-      }
-      else{
-        alert("Fecha de inicio debe ser menor a la fecha de terminación")
-      }
-    }
-
-    function borrarEvento(){
-
-      $.ajax({
-          type: "POST",
-          url: '<?= base_url('agenda/borrarEvento') ?>',
-          data: { 'id' : idEvento },
-          success: function(result){
-            if(result == "1"){
-              cal.fullCalendar('removeEvents',idEvento);
-            }
-          },
-          error: function(data){
-            alert("Error");
-            console.log(data);
-          },
-        });
-    }
-
-    $('.date').datetimepicker({
-        format: 'hh:mm A'
-    });
     
+  
 
-    </script>
+
+<script>
+  var session_id = "<?= $this->session->id ?>";
+  var session_name = "<?= $this->session->nombre ?>";
+</script>
+
+<script src="<?= base_url("application/views/agenda/js/calendario.js") ?>"></script>
+
 
   </body>
 </html>

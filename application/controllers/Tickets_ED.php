@@ -25,6 +25,7 @@ class Tickets_ED extends CI_Controller {
       $datos['c_cancelados'] = $count->cancelados;
       $datos['c_revision'] = $count->revision;
       $datos['c_todos'] = $count->todos;
+      $datos['c_detenidos'] = $count->detenidos;
 
       $datos['filtro'] = $estatus;
       $datos['tickets'] = $this->Modelo->getTickets($estatus);
