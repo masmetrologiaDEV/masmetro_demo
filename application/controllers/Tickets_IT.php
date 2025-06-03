@@ -78,6 +78,14 @@ class Tickets_IT extends CI_Controller {
     }
 
     function registrar() {
+        if($usuario_id){
+           $pendientes = $this->Modelo->tickets_solucionados_pendientes($usuario_id);
+    if ($pendientes >= 2) {
+        $this->session->set_flashdata('error', 'Tienes 2 o más tickets solucionados que aún no has cerrado. Por favor ciérralos antes de crear uno nuevo.');
+        redirect(base_url('tickets_IT/nuevo')); // O la vista donde creas tickets
+        return;
+    } 
+        }
         $data = array(
             'usuario' => $this->session->id,
             'tipo' => $this->input->post('opCategoria'),

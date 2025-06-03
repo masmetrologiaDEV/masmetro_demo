@@ -23,7 +23,7 @@
 
 
                         <?php if($modulo != 'administrar/activos' | $this->session->privilegios['tickets_it_soporte']) { ?>
-                            <a style="cursor: pointer;" onclick=generarTicketIT()>
+                            <a style="cursor: pointer;" onclick="generarTicketIT()">
                                 <div class="animated flipInY col-md-12 col-sm-12 col-xs-12">
                                     <div class="tile-stats">
                                         <div class="icon"><i class="fa fa-laptop"></i>

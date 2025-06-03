@@ -396,6 +396,12 @@ class Tickets_IT_model extends CI_Model {
       return $query->row();
     }
 
-
+function tickets_solucionados_pendientes($usuario_id) {
+    $this->db->from('tickets_sistemas');
+    $this->db->where('usuario', $usuario_id);
+    $this->db->where('estatus', 'SOLUCIONADO');
+    $this->db->where('cierre', 0); // Tickets no cerrados
+    return $this->db->count_all_results();
+}
 
 }
