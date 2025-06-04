@@ -25,8 +25,8 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 */
 
 //$config['base_url'] = 'http://app.siga-mas.com:85';
-$config['base_url'] = 'http://192.168.6.14/';
-//$config['base_url'] = 'http://localhost/masmetro_demo';
+//$config['base_url'] = 'http://192.168.6.14/';
+$config['base_url'] = 'http://localhost/masmetro_demo';
 
 /*
 |--------------------------------------------------------------------------

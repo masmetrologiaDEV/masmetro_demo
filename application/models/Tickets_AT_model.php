@@ -32,6 +32,18 @@ class Tickets_AT_model extends CI_Model {
         {
           $this->db->where('TA.estatus', 'CANCELADO');
         }
+        if($estatus == 'detenidos')
+        {
+          $this->db->where('TA.estatus', 'DETENIDO');
+        }
+         if($estatus == 'revision')
+        {
+          $this->db->where('TA.estatus', 'EN REVISION');
+        }
+         if($estatus == 'todos')
+        {
+          $this->db->where('TA.estatus', 'TODOS');
+        }
 
         $this->db->order_by('TA.fecha', 'DESC');
         $query = $this->db->get();
@@ -44,9 +56,9 @@ class Tickets_AT_model extends CI_Model {
 
     function getTicketsCount(){
       $comando = "count(*) as todos";
-      $comando .=", (SELECT count(*) from tickets_autos where (estatus = 'ABIERTO' or estatus = 'DETENIDO' or estatus = 'EN CURSO')) as activos";
-       $comando .= ", (SELECT count(*) from tickets_autos where estatus = 'DETENIDO') as detenidos";
-      $comando .= ", (SELECT count(*) from tickets_sistemas where (estatus = 'EN REVISION')) as revision";
+      $comando .=", (SELECT count(*) from tickets_autos where (estatus = 'ABIERTO' or estatus = 'EN CURSO')) as activos";
+    $comando .= ", (SELECT count(*) from tickets_autos where estatus = 'DETENIDO') as detenidos";
+      $comando .= ", (SELECT count(*) from tickets_autos where (estatus = 'EN REVISION')) as revision";
       $comando .= ", (SELECT count(*) from tickets_autos where (estatus = 'SOLUCIONADO')) as solucionados";
       $comando .= ", (SELECT count(*) from tickets_autos where (estatus = 'CERRADO')) as cerrados";
       $comando .= ", (SELECT count(*) from tickets_autos where (estatus = 'CANCELADO')) as cancelados";

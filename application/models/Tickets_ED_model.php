@@ -1,4 +1,4 @@
-<?php
+    <?php
 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
@@ -31,11 +31,19 @@ class Tickets_ED_model extends CI_Model {
         {
           $this->db->where('TE.estatus', 'CANCELADO');
         }
+         if($estatus == 'detenidos')
+        {
+          $this->db->where('TA.estatus', 'DETENIDO');
+        }
+         if($estatus == 'revision')
+        {
+          $this->db->where('TA.estatus', 'EN REVISION');
+        }
 
         $this->db->order_by('TE.fecha', 'DESC');
         $query = $this->db->get();
         if ($query->num_rows() > 0) {
-            return $query->result_array();
+            return $query;
         } else {
             return false;
         }
@@ -44,8 +52,8 @@ class Tickets_ED_model extends CI_Model {
     function getTicketsCount(){
       $comando = "count(*) as todos";
       $comando .=", (SELECT count(*) from tickets_edificio where (estatus = 'ABIERTO' or estatus = 'DETENIDO' or estatus = 'EN CURSO')) as activos";
-      $comando .= ", (SELECT count(*) from tickets_autos where estatus = 'DETENIDO') as detenidos";
-      $comando .= ", (SELECT count(*) from tickets_sistemas where (estatus = 'EN REVISION')) as revision";
+      $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'EN REVISION')) as revision";
+      $comando .= ", (SELECT count(*) from tickets_edificio where estatus = 'DETENIDO') as detenidos";
       $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'SOLUCIONADO')) as solucionados";
       $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'CERRADO')) as cerrados";
       $comando .= ", (SELECT count(*) from tickets_edificio where (estatus = 'CANCELADO')) as cancelados";

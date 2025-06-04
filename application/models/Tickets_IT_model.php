@@ -11,7 +11,7 @@ class Tickets_IT_model extends CI_Model {
 
     function getTickets($estatus, $user = null, $f1 = null, $f2 = null) {
     // Definimos los estatus válidos
-    $estatus_validos = ['activos', 'detenidos', 'revision', 'solucionados', 'cerrados', 'cancelados'];
+    $estatus_validos = ['activos', 'detenidos', 'revision', 'solucionados', 'cerrados', 'cancelados', 'todos'];
 
     // Validamos el estatus; si no es válido, retornamos arreglo vacío
     if (!in_array($estatus, $estatus_validos)) {
@@ -40,7 +40,18 @@ class Tickets_IT_model extends CI_Model {
         $this->db->where('TS.estatus', 'CERRADO');
     } elseif ($estatus == 'cancelados') {
         $this->db->where('TS.estatus', 'CANCELADO');
-    }
+    } elseif ($estatus == 'todos') {
+    $this->db->where_in('TS.estatus', [
+        'ABIERTO',
+        'EN CURSO',
+        'EN REVISION',
+        'SOLUCIONADO',
+        'CERRADO',
+        'CANCELADO',
+        'DETENIDO'
+    ]);
+}
+
 
     // Filtrado por usuario si se recibe parámetro
     if ($user) {
@@ -106,7 +117,7 @@ class Tickets_IT_model extends CI_Model {
 
     function getTicketsCount(){
       $comando = "count(*) as todos";
-    //  $comando .=", (SELECT count(*) from tickets_sistemas where (estatus = 'ABIERTO' or estatus = 'DETENIDO' or estatus = 'EN CURSO' or estatus = 'EN REVISION')) as activos";
+      //$comando .=", (SELECT count(*) from tickets_sistemas where (estatus = 'TODOS' or estatus = 'DETENIDO' or estatus = 'EN CURSO' or estatus = 'EN REVISION')) as activos";
 
       $comando .= ", (SELECT count(*) from tickets_sistemas where (estatus = 'ABIERTO' or estatus = 'EN CURSO')) as activos";
       $comando .= ", (SELECT count(*) from tickets_sistemas where (estatus = 'DETENIDO')) as detenidos";

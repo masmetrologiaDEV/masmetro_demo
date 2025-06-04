@@ -307,6 +307,8 @@ FROM tickets_sistemas t
             }
             else if ($estatus=='detenidos') {
                 $query .=" and t.estatus = 'DETENIDO'";
+            } else if ($estatus=='todos') {
+                 $query .= " and t.estatus IN ('EN CURSO', 'ABIERTO', 'EN REVISION', 'SOLUCIONADO', 'CERRADO', 'CANCELADO', 'DETENIDO')";
             }
 
             //$query .=" and t.estatus = '$esta'";
