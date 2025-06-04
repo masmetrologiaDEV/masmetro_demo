@@ -16,7 +16,6 @@ class Tickets_ED_model extends CI_Model {
         if($estatus == 'activos')
         {
           $this->db->where('TE.estatus', 'ABIERTO');
-          $this->db->or_where('TE.estatus', 'DETENIDO');
           $this->db->or_where('TE.estatus', 'EN CURSO');
         }
         if($estatus == 'solucionados')
