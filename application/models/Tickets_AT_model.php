@@ -40,10 +40,6 @@ class Tickets_AT_model extends CI_Model {
         {
           $this->db->where('TA.estatus', 'EN REVISION');
         }
-         if($estatus == 'todos')
-        {
-          $this->db->where('TA.estatus', 'TODOS');
-        }
 
         $this->db->order_by('TA.fecha', 'DESC');
         $query = $this->db->get();

@@ -197,7 +197,7 @@ switch ($filtro) {
                                               break;
                               
                                           case 'DETENIDO':
-                                              $BTN_CLASS = 'btn btn-warning';
+                                              $BTN_CLASS = 'btn btn-danger';
                                               break;
                               
                                           case 'CANCELADO':

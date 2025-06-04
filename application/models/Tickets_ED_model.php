@@ -33,17 +33,17 @@ class Tickets_ED_model extends CI_Model {
         }
          if($estatus == 'detenidos')
         {
-          $this->db->where('TA.estatus', 'DETENIDO');
+          $this->db->where('TE.estatus', 'DETENIDO');
         }
          if($estatus == 'revision')
         {
-          $this->db->where('TA.estatus', 'EN REVISION');
+          $this->db->where('TE.estatus', 'EN REVISION');
         }
 
         $this->db->order_by('TE.fecha', 'DESC');
         $query = $this->db->get();
         if ($query->num_rows() > 0) {
-            return $query;
+           return $query->result_array();
         } else {
             return false;
         }
