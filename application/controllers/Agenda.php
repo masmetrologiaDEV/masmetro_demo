@@ -24,85 +24,58 @@ class Agenda extends CI_Controller {
         echo json_encode($data);
     }
 
-    function crearEvento()
-    {
-        $reunion = $_POST['reunion'];
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    /*$sala = $_POST['sala'];
-    $inicia = $_POST['inicia'];
-    $termina = $_POST['termina'];*/
-/*
-echo '<pre>';
-print_r($_POST['sala']);
-print_r($_POST['inicia']);
-print_r($_POST['termina']);
-echo '</pre>';
-die();*/
+   function crearEvento()
+{
+    $reunion = $_POST['reunion'];
 
-/*
-    $query = "SELECT * FROM agenda WHERE sala = ? AND (
-        (inicia < ? AND termina > ?) OR
-        (inicia >= ? AND inicia < ?)
-    )";
-    $res = $this->db->query($query, [$sala, $termina, $inicia, $inicia, $termina])->result();
+    // Datos comunes del evento
+    $datos = array(
+        'usuario' => $this->session->id,
+        'titulo' => $_POST['titulo'],
+        'inicia' => $_POST['inicia'],
+        'termina' => $_POST['termina'],
+        'descripcion' => $_POST['descripcion'],
+        'sala' => $_POST['sala'],
+    );
 
-    if (!empty($res)) {
-        echo "<script>alert('La sala ya está ocupada en ese horario'); window.history.back();</script>";
-        exit;
-    }*/
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//agregar sala
-           if ($reunion == 1) {
-            $datos = array(
-            'usuario' => $this->session->id, 
-            'titulo' =>$_POST['titulo'] , 
-            'inicia' => $_POST['inicia'], 
-            'termina' => $_POST['termina'], 
-            'sala' => $_POST['sala'], 
-
-            'descripcion' => $_POST['descripcion'], 
-            'equipo' => 1, 
-            'correos' => $_POST['tags_1'], 
-        );
-
+    // Si es una reunión, se agregan datos extra y se crea ticket
+    if ($reunion == 1) {
+        
+        $datos['equipo'] = 1;
+        $datos['correos'] = $_POST['tags_1'];
 
         echo $this->Modelo->insertEvent($datos);
 
-            $data = array(
+        // Crear ticket
+        $data = array(
             'usuario' => $this->session->id,
-            'tipo' =>'Reunion',
-            'titulo' => $_POST['titulo'].' -- Fecha/Hora: '.$_POST['inicia'].' hasta '.$_POST['termina'],
-            'descripcion' => $_POST['descripcion'].' -- Fecha/Hora: '.$_POST['inicia'].' hasta '.$_POST['termina'].' agregrar correos: '.$_POST['tags_1'],
+            'tipo' => 'Reunion',
+            'titulo' => $_POST['titulo'] . ' -- Fecha/Hora: ' . $_POST['inicia'] . ' hasta ' . $_POST['termina'],
+            'descripcion' => $_POST['descripcion'] . ' -- Fecha/Hora: ' . $_POST['inicia'] . ' hasta ' . $_POST['termina'] . ' agregar correos: ' . $_POST['tags_1'],
             'estatus' => 'ABIERTO',
             'cierre' => '0',
-
         );
+
         $last_id = $this->ITModelo->crear_ticket($data);
 
-        $datosCorreo['id'] = $last_id;
-        $datosCorreo['prefijo'] = 'IT';
-        $datosCorreo['titulo'] = $data['titulo'];
-        $datosCorreo['fecha'] = date('d/m/Y h:i A');
-        $datosCorreo['usuario'] = $this->session->nombre;
-        $datosCorreo['correo'] = $this->session->correo;
-        //echo var_dump($datosCorreo);die();
-        $this->correos->creacionTicket($datosCorreo);
-        redirect(base_url('tickets_IT/archivos/') . $last_id);
-            
-        }else{
-            $datos = array(
-            'usuario' => $this->session->id, 
-            'titulo' =>$_POST['titulo'] , 
-            'inicia' => $_POST['inicia'], 
-            'termina' => $_POST['termina'], 
-            'descripcion' => $_POST['descripcion'], 
+        $datosCorreo = array(
+            'id' => $last_id,
+            'prefijo' => 'IT',
+            'titulo' => $data['titulo'],
+            'fecha' => date('d/m/Y h:i A'),
+            'usuario' => $this->session->nombre,
+            'correo' => $this->session->correo,
         );
+
+        $this->correos->creacionTicket($datosCorreo);
+
+        redirect(base_url('tickets_IT/archivos/') . $last_id);
+    } else {
+        // Evento normal sin ticket
         echo $this->Modelo->insertEvent($datos);
-        }
-
-
     }
+}
+
 
     function borrarEvento()
     {
