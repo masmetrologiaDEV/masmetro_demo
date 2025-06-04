@@ -5,6 +5,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Correos {
 
     function creacionTicket($datos) {
+        $CI = &get_instance();
+        $CI->load->model('Conexion_model');
+        
+        $res = $CI->Conexion->consultar("SELECT correo FROM `usuarios` WHERE departamento ='SISTEMAS'");
+        $correos_array = array_column($res, 'correo'); 
 
         $id = $datos['id'];
         $prefijo = $datos['prefijo'];
@@ -19,7 +24,7 @@ class Correos {
 
         if($prefijo == "IT")
         {
-            $remitentes = array('tickets@masmetrologia.mx','jcastaneda@masmetrologia.mx', 'crodriguez@masmetrologia.mx', 'jc@masmetrologia.mx', $correo);
+            $remitentes = array_merge($correos_array, array($correo));
         }
         else if ($prefijo == "AT")
         {
