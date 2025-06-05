@@ -346,7 +346,7 @@
             }
             else if(campo == "descripcion")
             {
-                $(elem.children[0]).val('<?= $qr->descripcion ?>');
+                $(elem.children[0]).val(<?= json_encode(trim(preg_replace('/\s+/', ' ', $qr->descripcion))) ?>);
             }
 
         });
