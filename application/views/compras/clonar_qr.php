@@ -351,7 +351,7 @@
 
         });
         
-        $('#txtRequisitosEspeciales').vval(<?= json_encode(trim(preg_replace('/\s+/', ' ', $qr->especificos ))) ?>);
+        $('#txtRequisitosEspeciales').val(<?= json_encode(trim(preg_replace('/\s+/', ' ', $qr->especificos ))) ?>);
         if($('#tipoCal').val()!='N/A' && tipo == 'PRODUCTO'){
             Cal();
             document.querySelector('#tipoCalibracion').value ="<?= $qr->tipoCalibracion?>";
