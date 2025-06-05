@@ -387,13 +387,14 @@
                 $(elem.children[0]).val('<?= $qr->clave_unidad ?>');
             }
             else if(campo == "descripcion")
-            {
-                $(elem.children[0]).val('<?= $qr->descripcion ?>');
+            {   
+                //error comilla json_encode(trim(preg_replace('/\s+/', ' '
+                $(elem.children[0]).val(<?= json_encode(trim(preg_replace('/\s+/', ' ', $qr->descripcion))) ?>);
             }
 
         });
 
-        $('#txtRequisitosEspeciales').val("<?= trim(preg_replace('/\s+/', ' ',$qr->especificos))?>");
+        $('#txtRequisitosEspeciales').vval(<?= json_encode(trim(preg_replace('/\s+/', ' ', $qr->especificos ))) ?>);
         if($('#tipoCal').val()!='N/A' && tipo == 'PRODUCTO'){
             Cal();
 	    document.querySelector('#tipoCalibracion').value ="<?= $qr->tipoCalibracion?>";
