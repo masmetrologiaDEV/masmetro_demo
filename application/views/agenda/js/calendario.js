@@ -115,7 +115,7 @@ function crearEvento() {
   var inicia = $('#inicia').val();
   var termina = $('#termina').val();
   var descripcion = $('#notas').val();
-  var reunion = document.getElementById('cbreunion').checked ? 1 : 0;
+  var reunion = $('#cbreunion').val();
   var tags_1 = $('#tags_1').val();
   var sala = $('#sala').val();
 

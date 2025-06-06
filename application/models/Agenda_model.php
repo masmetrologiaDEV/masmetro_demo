@@ -26,7 +26,7 @@ class Agenda_model extends CI_Model {
 
     function getEventos()
     {
-        $this->db->select('A.id, A.fecha, A.inicia as start, A.termina as end, A.titulo as title, A.descripcion, A.usuario, concat(U.nombre," ",U.paterno) as User');
+        $this->db->select('A.id, A.fecha, A.inicia as start, A.termina as end, A.titulo as title, A.descripcion, A.usuario, A.sala, concat(U.nombre," ",U.paterno) as User');
         $this->db->join('usuarios U', 'A.usuario = U.id', 'LEFT');
         $res = $this->db->get('agenda A');
         if($res->num_rows() > 0)
