@@ -189,8 +189,7 @@
                                     <!-- /.row -->
 
                                     <!-- this row will not appear when printing -->
-                                    <div class="row no-print">
-                                        <div class="col-xs-12">
+                                    <div class="row no-print">                                        <div class="col-xs-12">
                                         <?php
                                         if ($qr->estatus=='RECHAZADO') {
                                    

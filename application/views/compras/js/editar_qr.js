@@ -4,7 +4,7 @@ function load()
     $('#btnNotificaciones').html('<i class="fa fa-bell"></i> Usuarios (' + NOTIFICACIONES.length + ')');
     eventos();
     loadSubtipos();
-    $('#divRequisitosEspeciales').hide();
+    //$('#divRequisitosEspeciales').hide();
 }
 
 function eventos(){
@@ -172,7 +172,7 @@ function subtipo(){
             break;
 
         case "REVISION":
-            $('#divRequisitosEspeciales').hide();
+         //   $('#divRequisitosEspeciales').hide();
             servicioRev();
             break;
         
