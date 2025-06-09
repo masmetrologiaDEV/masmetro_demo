@@ -27,6 +27,7 @@ class Agenda extends CI_Controller {
    function crearEvento()
 {
     $reunion = $_POST['reunion'];
+   
 
     // Datos comunes del evento
     $datos = array(

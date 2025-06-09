@@ -106,7 +106,7 @@
                 <div class="form-group">
                     <label class="col-sm-7 control-label">Se necesita equipo para reunion:</label>
                       <div class='col-sm-3 input-group'>
-                        <input type="checkbox"  id="cbreunion" value="1" name="cbreunion"/>
+                        <input type="checkbox"  id="cbreunion"  name="cbreunion"/>
                       </div>
                 </div>
 
