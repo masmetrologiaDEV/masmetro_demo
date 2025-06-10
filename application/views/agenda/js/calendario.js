@@ -71,6 +71,7 @@ function validar() {
   var termina = $('#termina').val();
   var sala = $('#sala').val();
 
+
   var i = new Date(dia + " " + inicia);
   var t = new Date(dia + " " + termina);
 
@@ -118,6 +119,7 @@ function crearEvento() {
   var reunion = document.getElementById('cbreunion').checked ? 1 : 0;
   var tags_1 = $('#tags_1').val();
   var sala = $('#sala').val();
+
 
   var i = new Date(dia + " " + inicia);
   var t = new Date(dia + " " + termina);

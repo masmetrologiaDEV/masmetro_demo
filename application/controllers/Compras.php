@@ -2,278 +2,301 @@
 
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+// Controlador Compras para gestionar requisiciones, QR, y flujos relacionados
 class Compras extends CI_Controller {
 
+    // Constructor: carga modelos, librerías y helpers necesarios
     function __construct() {
         parent::__construct();
-        $this->load->model('compras_model','Modelo');
-        $this->load->model('MLConexion_model', 'MLConexion');
-        $this->load->model('descargas_model');
-        $this->load->model('conexion_model', 'Conexion');
+        $this->load->model('compras_model','Modelo');            // Modelo principal de compras
+        $this->load->model('MLConexion_model', 'MLConexion');    // Modelo para conexión con ML
+        $this->load->model('descargas_model');                   // Modelo para descargas
+        $this->load->model('conexion_model', 'Conexion');        // Modelo de conexión general
 
-        $this->load->helper('download');
-        $this->load->library('correos');
-        $this->load->library('correos_pr');
-        $this->load->library('AOS_funciones');
+        $this->load->helper('download');                         // Helper para descargas
+        $this->load->library('correos');                         // Librería de correos (general)
+        $this->load->library('correos_pr');                      // Librería de correos para PR
+        $this->load->library('AOS_funciones');                   // Funciones auxiliares AOS
     }
 
-    function generar_qr(){
-        $data['intervalo'] = $this->Modelo->intervalos();
+    // Carga vista para generar una nueva QR
+    function generar_qr() {
+        $data['intervalo'] = $this->Modelo->intervalos();       // Obtiene intervalos disponibles
         $this->load->view('header');
-        $this->load->view('compras/generar_qr', $data);
+        $this->load->view('compras/generar_qr', $data);         // Vista para generación de QR
     }
 
-    function ver_qr($id){
-        $data['comentarios'] = $this->Modelo->verQr_comentarios($id);
-        $data['comentarios_fotos'] = $this->Modelo->verQr_comentarios_fotos($id);
-        $data['conceptos'] = $this->Modelo->conceptos();
+    // Muestra los detalles de un QR específico
+    function ver_qr($id) {
+        $data['comentarios'] = $this->Modelo->verQr_comentarios($id);          // Comentarios del QR
+        $data['comentarios_fotos'] = $this->Modelo->verQr_comentarios_fotos($id); // Fotos relacionadas
+        $data['conceptos'] = $this->Modelo->conceptos();                       // Catálogo de conceptos
+        $data['qr'] = $this->Modelo->getDetalleQR($id);                        // Detalle del QR
 
-        $data['qr'] = $this->Modelo->getDetalleQR($id);
-	$fecha_rechazo=$this->Conexion->consultar("SELECT b.fecha FROM requisiciones_cotizacion qr JOIN bitacora_qrs b on qr.id=b.qr WHERE b.estatus='RECHAZADO' AND b.qr=".$id, true);
-        $data['fecha_rechazo']=$fecha_rechazo;
-        
-        switch ($data['qr']->estatus) 
-        {
+        // Consulta la fecha del rechazo si aplica
+        $fecha_rechazo = $this->Conexion->consultar(
+            "SELECT b.fecha FROM requisiciones_cotizacion qr 
+             JOIN bitacora_qrs b ON qr.id = b.qr 
+             WHERE b.estatus = 'RECHAZADO' AND b.qr = " . $id, true
+        );
+        $data['fecha_rechazo'] = $fecha_rechazo;
+
+        // Define estilo del botón según estatus del QR
+        switch ($data['qr']->estatus) {
             case 'ABIERTO':
-            $data['btn_estatus'] = "btn-primary";
-            break;
-
+                $data['btn_estatus'] = "btn-primary";
+                break;
             case 'LIBERADO':
             case 'COMPRA APROBADA':
-            $data['btn_estatus'] = "btn-success";
-            break;
-
+                $data['btn_estatus'] = "btn-success";
+                break;
             case 'COTIZANDO':
-
-            $data['btn_estatus'] = "btn-warning";
-            break;
-
+                $data['btn_estatus'] = "btn-warning";
+                break;
             case 'CANCELADO':
-            $data['btn_estatus'] = "btn-default";
-            break;
-
+                $data['btn_estatus'] = "btn-default";
+                break;
             case 'RECHAZADO':
             case 'COMPRA RECHAZADA':
-            $data['btn_estatus'] = "btn-danger";
-            break;
-            
+                $data['btn_estatus'] = "btn-danger";
+                break;
             default:
-            
                 break;
         }
 
         $this->load->view('header');
-        $this->load->view('compras/ver_qr', $data);
+        $this->load->view('compras/ver_qr', $data);             // Vista para ver QR
     }
 
-    function editar_qr($id){
-        $data['qr'] = $this->Modelo->getDetalleQR($id);
-        $data['intervalo'] = $this->Modelo->intervalos();
-        //echo var_dump($data);die();
+    // Carga la vista para editar un QR específico
+    function editar_qr($id) {
+        $data['qr'] = $this->Modelo->getDetalleQR($id);         // Datos del QR a editar
+        $data['intervalo'] = $this->Modelo->intervalos();       // Intervalos disponibles
+        // $this->load->view('debug', $data); // Para depuración (comentado)
         $this->load->view('header');
         $this->load->view('compras/editar_qr', $data);
     }
 
-    function clonar_qr($id){
-        $data['qr'] = $this->Modelo->getDetalleQR($id);
-        $data['intervalo'] = $this->Modelo->intervalos();
+    // Carga la vista para clonar un QR específico
+    function clonar_qr($id) {
+        $data['qr'] = $this->Modelo->getDetalleQR($id);         // Datos del QR original
+        $data['intervalo'] = $this->Modelo->intervalos();       // Intervalos disponibles
         $this->load->view('header');
         $this->load->view('compras/clonar_qr', $data);
     }
 
-    function requisiciones($estatus = 'TODO', $id=""){
-        $data['estatus'] = strtoupper($estatus);
-        $data['qr'] = $id;
-        $data['asignado'] = $this->Modelo->usuariosCompras();
-
-        $data['otros_aprobadores'] = $data['estatus'] == 'TODO' ? '' : 'unchecked';
+    // Muestra listado de requisiciones filtradas por estatus o ID
+    function requisiciones($estatus = 'TODO', $id = "") {
+        $data['estatus'] = strtoupper($estatus);                        // Estatus seleccionado
+        $data['qr'] = $id;                                              // ID del QR (si aplica)
+        $data['asignado'] = $this->Modelo->usuariosCompras();          // Usuarios del área de compras
+        $data['otros_aprobadores'] = $data['estatus'] == 'TODO' ? '' : 'unchecked'; // Filtro de vista
 
         $this->load->view('header');
-        $this->load->view('compras/catalogo_qr', $data);
+        $this->load->view('compras/catalogo_qr', $data);               // Vista del catálogo
     }
-    
-    function mis_qrs(){
+
+    // Muestra la vista con las requisiciones del usuario actual
+    function mis_qrs() {
         $this->load->view('header');
         $this->load->view('compras/mis_qrs');
     }
 
-    /////////////////////////////////////////////////////////////////////
-    function ajax_generarQR(){
-        $_info = json_decode($this->input->post('info'));
-        //echo var_dump($_info);die();
-        $_atributos = $this->input->post('atributos');
-        $unidad="";
-        $clave_unidad="";
-	$intervalo=null;
+        // Genera una nueva QR con datos recibidos vía POST (JSON + atributos)
+    function ajax_generarQR() {
+        $_info = json_decode($this->input->post('info'));       // Información general en formato JSON
+        $_atributos = $this->input->post('atributos');          // Atributos específicos
+
+        $unidad = "";
+        $clave_unidad = "";
+        $intervalo = null;
+
+        // Si hay intervalo definido, se asigna
         if (!empty($_info->intervalo)) {
-            $intervalo=$_info->intervalo;
-        }
-        
-        //echo var_dump($_info->tipocalibracion);die();
-        if($_info->tipo == 'PRODUCTO'){
-            $unidad=$_info->unidad;
-            $clave_unidad=$_info->clave_unidad;
-           $intervalo=null;
-
-
+            $intervalo = $_info->intervalo;
         }
 
-        $info['usuario'] = $this->session->id;
-        //$info['cliente'] = $_info->cliente;
-        $info['archivo'] = "0";
-        $info['nombre_archivo'] = "";
-        $info['tipo'] = $_info->tipo;
-        $info['subtipo'] = $_info->subtipo;
-        $info['cantidad'] = $_info->cantidad;
-        $info['cantidad_aprobada'] = 0;
-        $info['unidad'] = $unidad;
-        $info['clave_unidad'] = $clave_unidad;
-        $info['descripcion'] = $_info->descripcion;
-        $info['prioridad'] = $_info->prioridad;
-        $info['lugar_entrega'] = $_info->lugar_entrega;
-        $info['comentarios'] = $_info->comentarios;
-        $info['critico'] = $_info->critico;
-        $info['destino'] = $_info->destino;
-        $info['atributos'] = $_atributos;
-        $info['notificaciones'] = $_info->notificaciones;
-        $info['estatus'] = 'ABIERTO';
-        $info['especificos'] = $_info->especificos;
-        $info['intervalo'] = $intervalo;
-
-        
-        if($_info->tipo == 'PRODUCTO'){
-            if (isset($_info->tipocalibracion)) {
-                $info['tipocalibracion'] = $_info->tipocalibracion;
-            }
-            
+        // Si el tipo es 'PRODUCTO', se extraen unidad y clave, y se ignora el intervalo
+        if ($_info->tipo == 'PRODUCTO') {
+            $unidad = $_info->unidad;
+            $clave_unidad = $_info->clave_unidad;
+            $intervalo = null;
         }
 
-//echo var_dump($info);die();
-        $res = $this->Modelo->generarQR($info);
-	$bitacoraQR['qr']=intval($res);
-        $bitacoraQR['user']=$this->session->id;
-        $bitacoraQR['estatus']='ABIERTO';
+        // Preparación de datos para guardar la QR
+        $info = array(
+            'usuario' => $this->session->id,
+            'archivo' => "0",
+            'nombre_archivo' => "",
+            'tipo' => $_info->tipo,
+            'subtipo' => $_info->subtipo,
+            'cantidad' => $_info->cantidad,
+            'cantidad_aprobada' => 0,
+            'unidad' => $unidad,
+            'clave_unidad' => $clave_unidad,
+            'descripcion' => $_info->descripcion,
+            'prioridad' => $_info->prioridad,
+            'lugar_entrega' => $_info->lugar_entrega,
+            'comentarios' => $_info->comentarios,
+            'critico' => $_info->critico,
+            'destino' => $_info->destino,
+            'atributos' => $_atributos,
+            'notificaciones' => $_info->notificaciones,
+            'estatus' => 'ABIERTO',
+            'especificos' => $_info->especificos,
+            'intervalo' => $intervalo
+        );
+
+        // Si es tipo PRODUCTO y tiene tipo de calibración, se añade
+        if ($_info->tipo == 'PRODUCTO' && isset($_info->tipocalibracion)) {
+            $info['tipocalibracion'] = $_info->tipocalibracion;
+        }
+
+        $res = $this->Modelo->generarQR($info); // Se crea la QR en la base de datos
+
+        // Registra movimiento en bitácora de QR
+        $bitacoraQR = array(
+            'qr' => intval($res),
+            'user' => $this->session->id,
+            'estatus' => 'ABIERTO'
+        );
         $this->Modelo->estatusQR($bitacoraQR);
-        
-        
-        if($res)
-        {
-            $datos['id'] = $res;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $this->session->nombre;
-            //$datos['cliente'] = $_info->nombrecliente;
-            $datos['cantidad'] = $_info->cantidad;
-            $datos['unidad'] = $unidad;
-            $datos['descripcion'] = $_info->descripcion;
-            $datos['atributos'] = $_atributos;
-            $datos['prioridad'] = $_info->prioridad;
-            $datos['comentarios'] = $_info->comentarios;
-            $datos['correos'] = array_merge(array($this->session->correo), $this->Modelo->getCorreosQR());
-            
-            if($_info->prioridad != 'NORMAL')
-            {
+
+        // Si la creación fue exitosa
+        if ($res) {
+            $datos = array(
+                'id' => $res,
+                'fecha' => date('d/m/Y h:i A'),
+                'usuario' => $this->session->nombre,
+                'cantidad' => $_info->cantidad,
+                'unidad' => $unidad,
+                'descripcion' => $_info->descripcion,
+                'atributos' => $_atributos,
+                'prioridad' => $_info->prioridad,
+                'comentarios' => $_info->comentarios,
+                'correos' => array_merge(
+                    array($this->session->correo),
+                    $this->Modelo->getCorreosQR()
+                )
+            );
+
+            // Solo se envía correo si la prioridad no es NORMAL
+            if ($_info->prioridad != 'NORMAL') {
                 $this->correos->creacionQR($datos);
             }
-            echo $res;
+
+            echo $res; // Devuelve el ID de la nueva QR
         }
     }
 
-    function test(){
+    // Prueba: imprime lista de correos configurados para QR
+    function test() {
         print_r($this->Modelo->getCorreosQR());
     }
 
-    function ajax_editarQR(){
-        $_info = json_decode($this->input->post('info'));
-        $_atributos = $this->input->post('atributos');
-        $unidad="";
-        $clave_unidad="";
-        $intervalo=null;
-	$especificos=null;
-        //$intervalo=$_info->intervalo;
-	$bitacoraQR['qr']=intval($_info->id);
-        $bitacoraQR['user']=$this->session->id;
-        $bitacoraQR['estatus']='EDICION';
+    // Edita una QR existente con nueva información recibida vía POST
+    function ajax_editarQR() {
+        $_info = json_decode($this->input->post('info'));       // Datos principales
+        $_atributos = $this->input->post('atributos');          // Atributos editados
+
+        $unidad = "";
+        $clave_unidad = "";
+        $intervalo = null;
+        $especificos = null;
+
+        // Registra edición en bitácora
+        $bitacoraQR = array(
+            'qr' => intval($_info->id),
+            'user' => $this->session->id,
+            'estatus' => 'EDICION'
+        );
         $this->Modelo->estatusQR($bitacoraQR);
 
+        // Asigna intervalo si existe
         if (!empty($_info->intervalo)) {
-            $intervalo=$_info->intervalo;
-        }
-	if (!empty($_info->especificos)) {
-            $especificos=$_info->especificos;
+            $intervalo = $_info->intervalo;
         }
 
-        //echo var_dump($_info);die();
-        if($_info->tipo == 'PRODUCTO'){
-            $unidad=$_info->unidad;
-            $clave_unidad=$_info->clave_unidad;
-            $intervalo=null;
+        // Asigna específicos si existen
+        if (!empty($_info->especificos)) {
+            $especificos = $_info->especificos;
         }
 
-        $info['id'] = $_info->id;
-        $info['usuario'] = $this->session->id;
-        $info['tipo'] = $_info->tipo;
-        $info['subtipo'] = $_info->subtipo;
-        $info['cantidad'] = $_info->cantidad;
-        //$info['cantidad_aprobada'] = 0;
-        $info['unidad'] = $unidad;
-        $info['clave_unidad'] = $clave_unidad;
-        $info['descripcion'] = $_info->descripcion;
-        $info['prioridad'] = $_info->prioridad;
-        $info['lugar_entrega'] = $_info->lugar_entrega;
-        $info['comentarios'] = $_info->comentarios;
-        $info['critico'] = $_info->critico;
-        $info['destino'] = $_info->destino;
-        $info['atributos'] = $_atributos;
-        $info['notificaciones'] = $_info->notificaciones;
-        $info['estatus'] = 'ABIERTO';
-        $info['especificos'] = $_info->especificos;
-        $info['intervalo'] = $intervalo;
+        // Si el tipo es PRODUCTO, se ajustan los valores y se ignora el intervalo
+        if ($_info->tipo == 'PRODUCTO') {
+            $unidad = $_info->unidad;
+            $clave_unidad = $_info->clave_unidad;
+            $intervalo = null;
+        }
 
-        
-        if($_info->tipo == 'PRODUCTO'){
-            if (isset($_info->tipocalibracion)) {
-                $info['tipocalibracion'] = $_info->tipocalibracion;
-            }
-            
+        // Datos a actualizar en la QR
+        $info = array(
+            'id' => $_info->id,
+            'usuario' => $this->session->id,
+            'tipo' => $_info->tipo,
+            'subtipo' => $_info->subtipo,
+            'cantidad' => $_info->cantidad,
+            'unidad' => $unidad,
+            'clave_unidad' => $clave_unidad,
+            'descripcion' => $_info->descripcion,
+            'prioridad' => $_info->prioridad,
+            'lugar_entrega' => $_info->lugar_entrega,
+            'comentarios' => $_info->comentarios,
+            'critico' => $_info->critico,
+            'destino' => $_info->destino,
+            'atributos' => $_atributos,
+            'notificaciones' => $_info->notificaciones,
+            'estatus' => 'ABIERTO',
+            'especificos' => $especificos,
+            'intervalo' => $intervalo
+        );
+
+        // Si tiene tipo de calibración y es producto, lo añade
+        if ($_info->tipo == 'PRODUCTO' && isset($_info->tipocalibracion)) {
+            $info['tipocalibracion'] = $_info->tipocalibracion;
         }
-/*	$coments['comentario'] = $_info->coments;
-        $coments['usuario'] = $this->session->id;
-        $coments['qr'] = $_info->id;
-        $this->Modelo->agregar_comentario($coments);
-*/
-if ($_info->coments) {
-            // code...
-            $coments['comentario'] = $_info->coments;
-        $coments['usuario'] = $this->session->id;
-        $coments['qr'] = $_info->id;
-        $this->Modelo->agregar_comentario($coments);
+
+        // Si se escribió un comentario durante la edición, lo guarda
+        if ($_info->coments) {
+            $coments = array(
+                'comentario' => $_info->coments,
+                'usuario' => $this->session->id,
+                'qr' => $_info->id
+            );
+            $this->Modelo->agregar_comentario($coments);
         }
-      //  echo var_dump($info);die();
-        $res = $this->Modelo->editarQR($info);
-        if($res)
-        {
-            $datos['id'] = $_info->id;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $this->session->nombre;
-            $datos['cantidad'] = $_info->cantidad;
-            $datos['unidad'] = $unidad;
-            $datos['descripcion'] = $_info->descripcion;
-            $datos['atributos'] = $_atributos;
-            $datos['prioridad'] = $_info->prioridad;
-            $datos['comentarios'] = $_info->comentarios;
-            $datos['correos'] = array_merge(array($this->session->correo), $this->Modelo->getCorreosQR());
-            
-            if($_info->prioridad != 'NORMAL')
-            {
+
+        $res = $this->Modelo->editarQR($info); // Ejecuta la actualización
+
+        // Si fue exitosa la edición
+        if ($res) {
+            $datos = array(
+                'id' => $_info->id,
+                'fecha' => date('d/m/Y h:i A'),
+                'usuario' => $this->session->nombre,
+                'cantidad' => $_info->cantidad,
+                'unidad' => $unidad,
+                'descripcion' => $_info->descripcion,
+                'atributos' => $_atributos,
+                'prioridad' => $_info->prioridad,
+                'comentarios' => $_info->comentarios,
+                'correos' => array_merge(
+                    array($this->session->correo),
+                    $this->Modelo->getCorreosQR()
+                )
+            );
+
+            // Solo si la prioridad no es NORMAL se notifica por correo
+            if ($_info->prioridad != 'NORMAL') {
                 $this->correos->edicionQR($datos);
             }
-            echo "1";
+
+            echo "1"; // Confirma éxito
         }
-        
     }
 
-
-    function ajax_getQRs(){
+        // Filtra y devuelve QRs según múltiples criterios recibidos vía POST (prioridad, tipo, estatus, fechas, texto, etc.)
+    function ajax_getQRs() {
         $prioridad = json_decode($this->input->post('prioridad'));
         $tipo = json_decode($this->input->post('tipo'));
 
@@ -285,192 +308,215 @@ if ($_info->coments) {
         $archivo = $this->input->post('archivo');
         $fecha1 = $this->input->post('fecha1');
         $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59';
-        //echo $asignado;die();
 
-        $query = "SELECT R.id, R.fecha, R.usuario, R.prioridad, R.tipo, R.subtipo, R.cantidad, R.cantidad_aprobada, R.unidad, R.clave_unidad, R.descripcion, R.atributos, R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, concat(U.nombre, ' ', U.paterno) as User";
-        $query .= " from requisiciones_cotizacion R left join usuarios U on R.usuario = U.id where 1 = 1";
-        //echo var_dump($query); die();
+        $f1 = strval($fecha1) . ' 00:00:00';
+        $f2 = strval($fecha2) . ' 23:59:59';
 
+        // Consulta base con JOIN para obtener nombre del usuario
+        $query = "SELECT R.id, R.fecha, R.usuario, R.prioridad, R.tipo, R.subtipo, R.cantidad, 
+                         R.cantidad_aprobada, R.unidad, R.clave_unidad, R.descripcion, R.atributos, 
+                         R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, 
+                         CONCAT(U.nombre, ' ', U.paterno) AS User 
+                  FROM requisiciones_cotizacion R 
+                  LEFT JOIN usuarios U ON R.usuario = U.id 
+                  WHERE 1 = 1";
 
-        if($estatus != 'TODO')
-        {
-            $query .= " and R.estatus = '$estatus'";
+        // Filtros opcionales según campos recibidos
+        if ($estatus != 'TODO') {
+            $query .= " AND R.estatus = '$estatus'";
         }
-        if(!empty($asignado))
-        {
-            $query .= " and R.asignado = '$asignado'";
+
+        if (!empty($asignado)) {
+            $query .= " AND R.asignado = '$asignado'";
         }
-        if($usuario == '1')
-        {
+
+        if ($usuario == '1') {
             $idUser = $this->session->id;
-            $query .= " and R.usuario = '$idUser'";
+            $query .= " AND R.usuario = '$idUser'";
         }
 
-        if(count($prioridad) > 0)
-        {
-            $query .= " and ( 1 = 0 ";
-            foreach ($prioridad as $key => $value) {
-                $query .= " or R.prioridad = '$value'";
+        if (count($prioridad) > 0) {
+            $query .= " AND (1 = 0";
+            foreach ($prioridad as $value) {
+                $query .= " OR R.prioridad = '$value'";
             }
-            $query .= " )";
-            
+            $query .= ")";
         }
 
-        if(isset($tipo) && count($tipo) > 0)
-        {
-            $query .= " and ( 1 = 0 ";
-            foreach ($tipo as $key => $value) {
-                $query .= " or R.tipo = '$value'";
+        if (isset($tipo) && count($tipo) > 0) {
+            $query .= " AND (1 = 0";
+            foreach ($tipo as $value) {
+                $query .= " OR R.tipo = '$value'";
             }
-            $query .= " )";
+            $query .= ")";
         }
 
-        if( $this->session->privilegios['crear_qr_interno'] != $this->session->privilegios['crear_qr_venta'] )
-        {
-            if($this->session->privilegios['editar_qr'] == "0" && $this->session->privilegios['liberar_qr'] == "0")
-            {
-                if($this->session->privilegios['crear_qr_interno'] == "1")
-                {
-                    $query .= " and R.destino = 'CONSUMO INTERNO'";
-                }
-                else
-                {
-                    $query .= " and R.destino = 'VENTA'";
+        // Control de acceso según privilegios para consumo interno o venta
+        if ($this->session->privilegios['crear_qr_interno'] != $this->session->privilegios['crear_qr_venta']) {
+            if ($this->session->privilegios['editar_qr'] == "0" && $this->session->privilegios['liberar_qr'] == "0") {
+                if ($this->session->privilegios['crear_qr_interno'] == "1") {
+                    $query .= " AND R.destino = 'CONSUMO INTERNO'";
+                } else {
+                    $query .= " AND R.destino = 'VENTA'";
                 }
             }
         }
 
-        if(!empty($texto))
-        {
-            if($parametro == "folio")
-            {
-                $query .= " and R.id = '$texto'";
-            }
-            if($parametro == "usuario")
-            {
-                //$query .= " having User like '%$texto%'";
-                $query .= " and concat(U.nombre, ' ', U.paterno) like '%$texto%'";
-            }
-            if($parametro == "contenido")
-            {
-                $query .= " and (R.descripcion like '%$texto%' or UPPER(R.atributos->'$.marca') like UPPER('%$texto%') or UPPER(R.atributos->'$.modelo') like UPPER('%$texto%') )";
+        // Filtro por texto libre según el parámetro seleccionado
+        if (!empty($texto)) {
+            switch ($parametro) {
+                case 'folio':
+                    $query .= " AND R.id = '$texto'";
+                    break;
+                case 'usuario':
+                    $query .= " AND CONCAT(U.nombre, ' ', U.paterno) LIKE '%$texto%'";
+                    break;
+                case 'contenido':
+                    $query .= " AND (R.descripcion LIKE '%$texto%' 
+                                 OR UPPER(R.atributos->'$.marca') LIKE UPPER('%$texto%') 
+                                 OR UPPER(R.atributos->'$.modelo') LIKE UPPER('%$texto%'))";
+                    break;
             }
         }
+
+        // Filtro por rango de fechas
         if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and R.fecha BETWEEN '".$f1."' AND '".$f2."' ";
+            $query .= " AND R.fecha BETWEEN '$f1' AND '$f2'";
         }
-//        $query .= " and R.maximo_vencimiento > (CURRENT_DATE() - INTERVAL 1 YEAR)  ";
+
+        // Si no es consulta de archivo histórico
         if ($archivo != 1) {
-            $query .= " and R.fecha > '2021-01-01 00:00:00'";
+            $query .= " AND R.fecha > '2021-01-01 00:00:00'";
         }
 
-        $query .= " order by R.fecha desc";
+        $query .= " ORDER BY R.fecha DESC";
 
-
+        // Ejecuta la consulta
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
+        if ($res) {
             echo json_encode($res);
-            //echo $query;
-        }
-        else{
+        } else {
             echo "";
         }
     }
 
-    function ajax_getMisQRs(){
+    // Devuelve todas las QRs creadas por un usuario específico
+    function ajax_getMisQRs() {
         $user = $this->input->post('usuario');
-        
         $res = $this->Modelo->getMisQrs($user);
-        if($res)
-        {
+
+        if ($res) {
             echo json_encode($res);
-        }
-        else{
+        } else {
             echo "";
         }
     }
 
-    function ajax_getQRComentarios(){
+    // Devuelve los comentarios de una QR específica
+    function ajax_getQRComentarios() {
         $qr = $this->input->post('qr');
-        $res = $this->Conexion->consultar("SELECT C.*, concat(U.nombre, ' ', U.paterno, ' ', U.materno) as User from qr_comentarios C inner join usuarios U on U.id = C.usuario where C.qr = $qr");
-        if($res)
-        {
-            echo json_encode($res);    
+        $res = $this->Conexion->consultar(
+            "SELECT C.*, CONCAT(U.nombre, ' ', U.paterno, ' ', U.materno) AS User 
+             FROM qr_comentarios C 
+             INNER JOIN usuarios U ON U.id = C.usuario 
+             WHERE C.qr = $qr"
+        );
+
+        if ($res) {
+            echo json_encode($res);
         }
     }
 
-    function ajax_getDetalleQR(){
+    // Devuelve el detalle completo de una QR específica
+    function ajax_getDetalleQR() {
         $id = $this->input->post('idQR');
         $res = $this->Modelo->getDetalleQR($id);
-        if($res)
-        {
+
+        if ($res) {
             echo json_encode($res);
-        }
-        else
-        {
+        } else {
             echo "";
         }
     }
 
-    function ajax_getUsuariosQRNotificaciones(){
+    // Devuelve usuarios con privilegios específicos para recibir notificaciones de QR
+    function ajax_getUsuariosQRNotificaciones() {
         $privilegio = $this->input->post('privilegio');
         $id = $this->input->post('id');
 
-        $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Nombre, P.puesto as Puesto, U.correo from usuarios U inner join puestos P on U.puesto = P.id inner join privilegios PR on PR.usuario = U.id where U.activo = 1";
+        // Consulta base
+        $query = "SELECT U.id, CONCAT(U.nombre, ' ', U.paterno) AS Nombre, P.puesto AS Puesto, U.correo 
+                  FROM usuarios U 
+                  INNER JOIN puestos P ON U.puesto = P.id 
+                  INNER JOIN privilegios PR ON PR.usuario = U.id 
+                  WHERE U.activo = 1";
 
-        if($id)
-        {
-            $query .= " and U.id = '$id'";
+        // Filtro por ID o privilegio específico
+        if ($id) {
+            $query .= " AND U.id = '$id'";
+        } else {
+            $query .= " AND PR.$privilegio = 1";
         }
-        else
-        {
-            $query .= " and PR.$privilegio = 1";
-        }
-        $query .=" ORDER BY Nombre ASC";
+
+        $query .= " ORDER BY Nombre ASC";
 
         $res = $this->Conexion->consultar($query, $id);
-        if($res)
-        {
+        if ($res) {
             echo json_encode($res);
         }
     }
 
+        // Devuelve los proveedores asignados a una QR específica
     function ajax_getProveedoresAsignados() {
         $idQR = $this->input->post('idQR');
-        //$query = "SELECT E.id, QP.id as idQP, P.entrega, E.nombre, QP.monto, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, QP.nombre_archivo, QP.vencimiento from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id where QP.qr = '".$idQR."'";
-        $query="SELECT E.id, QP.id as idQP, P.entrega, E.nombre, QP.monto, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, QP.nombre_archivo, QP.vencimiento, QP.fechaAsignacion, concat(U.nombre, ' ', U.paterno) as Asignador from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id LEFT JOIN usuarios U on U.id=QP.asignador where QP.qr='".$idQR."'";
-        //echo $query;die();
+
+        // Consulta con información de empresa, propuesta y asignador
+        $query = "SELECT E.id, QP.id as idQP, P.entrega, E.nombre, QP.monto, QP.total, QP.moneda, 
+                         QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, 
+                         QP.seleccionado, QP.nombre_archivo, QP.vencimiento, QP.fechaAsignacion, 
+                         CONCAT(U.nombre, ' ', U.paterno) AS Asignador 
+                  FROM qr_proveedores QP 
+                  INNER JOIN empresas E ON E.id = QP.empresa 
+                  INNER JOIN proveedores P ON P.empresa = E.id 
+                  LEFT JOIN usuarios U ON U.id = QP.asignador 
+                  WHERE QP.qr = '$idQR'";
+
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
+        if ($res) {
             echo json_encode($res);
-        }
-        else {
+        } else {
             echo "";
         }
     }
 
+    // Devuelve las propuestas enviadas por proveedores para una QR específica
     function ajax_getPropuestas() {
         $idQR = $this->input->post('idQR');
-        $query = "SELECT E.id, QP.id as idQP, P.entrega, P.rma_requerido, E.nombre, QP.monto, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, QP.nombre_archivo, QP.vencimiento, QR.cantidad, QR.descripcion, QR.tipo, QR.subtipo, ifnull(json_unquote(atributos->'$.serie'),'') as Serie, QR.nombre_archivoEjemplo,  QR.id as QR from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id where QP.qr = '".$idQR."'";
+
+        $query = "SELECT E.id, QP.id as idQP, P.entrega, P.rma_requerido, E.nombre, QP.monto, QP.total, 
+                         QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, 
+                         QP.seleccionado, QP.nombre_archivo, QP.vencimiento, QR.cantidad, QR.descripcion, 
+                         QR.tipo, QR.subtipo, IFNULL(JSON_UNQUOTE(atributos->'$.serie'), '') AS Serie, 
+                         QR.nombre_archivoEjemplo, QR.id as QR 
+                  FROM qr_proveedores QP 
+                  INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                  INNER JOIN empresas E ON E.id = QP.empresa 
+                  INNER JOIN proveedores P ON P.empresa = E.id 
+                  WHERE QP.qr = '$idQR'";
+
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
+        if ($res) {
             echo json_encode($res);
-        }
-        else {
+        } else {
             echo "";
         }
     }
 
-    function ajax_setProveedor(){
-       // echo $this->input->post('idQR');die();
+    // Asigna un proveedor a una QR (registro inicial con valores por defecto)
+    function ajax_setProveedor() {
         $data['qr'] = $this->input->post('idQR');
         date_default_timezone_set('America/Chihuahua');
-        $date=date('Y-m-d h:i:s'); 
+        $data['fechaAsignacion'] = date('Y-m-d h:i:s');
 
         $data['empresa'] = $this->input->post('idProv');
         $data['total'] = "0";
@@ -480,239 +526,258 @@ if ($_info->coments) {
         $data['comentarios'] = "";
         $data['factor'] = "0";
         $data['asignador'] = $this->session->id;
-        $data['fechaAsignacion'] = $date;
-       //echo var_dump($data);die();
 
         $res = $this->Modelo->setProveedor($data);
-        if($res)
-        {
+        if ($res) {
             echo "1";
         }
     }
 
-    function ajax_setProveedorSugerido(){
+    // Marca un proveedor como el seleccionado para una QR
+    function ajax_setProveedorSugerido() {
         $qr = $this->input->post('qr');
         $qr_prov = $this->input->post('qr_prov');
 
-        $query = "UPDATE qr_proveedores set seleccionado = '0' where qr='$qr'";
-        $query2 = "UPDATE qr_proveedores set seleccionado = '1' where id='$qr_prov'";
-
+        // Primero desmarca todos los proveedores de esa QR
+        $query = "UPDATE qr_proveedores SET seleccionado = '0' WHERE qr = '$qr'";
         $this->Modelo->update($query);
+
+        // Luego marca como seleccionado al proveedor indicado
+        $query2 = "UPDATE qr_proveedores SET seleccionado = '1' WHERE id = '$qr_prov'";
         $this->Modelo->update($query2);
 
         echo "1";
-
     }
 
-    function ajax_eliminarProveedor(){
+    // Elimina un proveedor asignado a una QR
+    function ajax_eliminarProveedor() {
         $data['qr'] = $this->input->post('qr');
         $data['empresa'] = $this->input->post('empresa');
+
         $res = $this->Modelo->deleteProveedor($data);
-        if($res)
-        {
+        if ($res) {
             echo "1";
         }
     }
 
-    function guardarProveedores(){
-        //$this->output->enable_profiler(TRUE);
+    // Guarda información actualizada de todos los proveedores de una QR
+    function guardarProveedores() {
         $datos = json_decode($this->input->post('datos'), TRUE);
 
-        foreach ($datos as $key => $value) {
+        // Se actualiza cada proveedor uno por uno
+        foreach ($datos as $value) {
             $this->Modelo->updateProveedor($value);
         }
 
-
         $id = $datos[0]["id"];
-        
-        
-        $this->Conexion->comando("UPDATE requisiciones_cotizacion set maximo_vencimiento = (SELECT max(vencimiento) from qr_proveedores where qr = (SELECT qr from qr_proveedores where id = $id))");
+
+        // Se actualiza el campo de máximo vencimiento en la tabla de requisiciones
+        $this->Conexion->comando(
+            "UPDATE requisiciones_cotizacion 
+             SET maximo_vencimiento = (
+                 SELECT MAX(vencimiento) 
+                 FROM qr_proveedores 
+                 WHERE qr = (
+                     SELECT qr 
+                     FROM qr_proveedores 
+                     WHERE id = $id
+                 )
+             )"
+        );
 
         echo "1";
     }
 
-    function proveedoresSugeridos(){
+    // Sugiere proveedores según coincidencia en palabras clave (tags)
+    function proveedoresSugeridos() {
         $tags = $this->input->post('tags');
         $arreglo = explode(" ", trim($tags));
-        $arreglo = array_diff($arreglo, array(""));
+        $arreglo = array_diff($arreglo, array("")); // Elimina vacíos
 
-        $query = "SELECT E.id, E.nombre from empresas E inner join proveedores P on P.empresa = E.id where E.proveedor = 1 and (1 != 1 ";
-        foreach ($arreglo as $key => $value) {
-            $query .= " or tags like '%," . $value . ",%'";
+        // Consulta proveedores con coincidencias en tags
+        $query = "SELECT E.id, E.nombre 
+                  FROM empresas E 
+                  INNER JOIN proveedores P ON P.empresa = E.id 
+                  WHERE E.proveedor = 1 AND (1 != 1";
+
+        foreach ($arreglo as $value) {
+            $query .= " OR tags LIKE '%," . $value . ",%'";
         }
+
         $query .= ")";
-        
-        
+
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
+        if ($res) {
             echo json_encode($res);
-        }
-        else {
+        } else {
             echo "";
         }
-        
-      }
+    }
 
-      /*function proveedoresSugeridosMarca(){
+          // Sugiere proveedores según coincidencia con la marca en atributos
+    function proveedoresSugeridosMarca() {
         $tags = $this->input->post('tags');
-        
-        $arreglo = explode(" ", trim($tags));
-        $arreglo = array_diff($arreglo, array(""));
- 
-        $query = "SELECT E.id, E.nombre, ifnull((SELECT count(QP.id) from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = E.id and upper(QR.atributos->'$.marca') = upper('\"$tags\"')), 0) as QtyQr from empresas E inner join proveedores P on P.empresa = E.id where E.proveedor = 1 and (1 != 1 ";
-        foreach ($arreglo as $key => $value) {
-            $query .= " or tags like '%," . $value . ",%'";
-        }
-        $query .= ")";
+
+        $query = "SELECT E.id, E.nombre, IFNULL((
+                      SELECT COUNT(QP.id) 
+                      FROM qr_proveedores QP 
+                      INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                      WHERE QP.monto > 0 
+                        AND QP.empresa = E.id 
+                        AND UPPER(QR.atributos->'$.marca') = UPPER('\"$tags\"')
+                  ), 0) AS QtyQr 
+                  FROM empresas E 
+                  INNER JOIN proveedores P ON P.empresa = E.id 
+                  WHERE E.proveedor = 1 
+                    AND (1 != 1 OR tags LIKE '%,$tags,%') 
+                    AND !ISNULL(P.entrega) 
+                    AND JSON_LENGTH(P.tipo) > 0 
+                    AND JSON_LENGTH(P.formas_pago) > 0";
 
         $query .= " UNION ";
 
-        $query .= "SELECT E.id, E.nombre, ifnull((SELECT count(QP.id) from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = E.id and upper(QR.atributos->'$.marca') = upper('\"$tags\"')), 0) as QtyQr from qr_proveedores QP inner join requisiciones_cotizacion QR on QP.qr = QR.id inner join empresas E on E.id = QP.empresa where E.proveedor = 1 and QP.monto > 0 and upper(QR.atributos->'$.marca') = upper('\"" . $tags . "\"');";
-        
+        $query .= "SELECT E.id, E.nombre, IFNULL((
+                      SELECT COUNT(QP.id) 
+                      FROM qr_proveedores QP 
+                      INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                      WHERE QP.monto > 0 
+                        AND QP.empresa = E.id 
+                        AND UPPER(QR.atributos->'$.marca') = UPPER('\"$tags\"')
+                  ), 0) AS QtyQr 
+                  FROM qr_proveedores QP 
+                  INNER JOIN requisiciones_cotizacion QR ON QP.qr = QR.id 
+                  INNER JOIN empresas E ON E.id = QP.empresa 
+                  WHERE E.proveedor = 1 
+                    AND QP.monto > 0 
+                    AND UPPER(QR.atributos->'$.marca') = UPPER('\"$tags\"')";
+
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
-      }*/
+        echo $res ? json_encode($res) : "";
+    }
 
-      function proveedoresSugeridosMarca(){
-        $tags = $this->input->post('tags');
- 
-        $query = "SELECT E.id, E.nombre, ifnull((SELECT count(QP.id) from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = E.id and upper(QR.atributos->'$.marca') = upper('\"$tags\"')), 0) as QtyQr from empresas E inner join proveedores P on P.empresa = E.id where E.proveedor = 1 and (1 != 1 or tags like '%," . $tags . ",%') and !isnull(P.entrega) and json_length(P.tipo) > 0 and json_length(P.formas_pago) > 0";
-
-        $query .= " UNION ";
-
-        $query .= "SELECT E.id, E.nombre, ifnull((SELECT count(QP.id) from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = E.id and upper(QR.atributos->'$.marca') = upper('\"$tags\"')), 0) as QtyQr from qr_proveedores QP inner join requisiciones_cotizacion QR on QP.qr = QR.id inner join empresas E on E.id = QP.empresa where E.proveedor = 1 and QP.monto > 0 and upper(QR.atributos->'$.marca') = upper('\"" . $tags . "\"');";
-        
-        $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else 
-        {
-            echo "";
-        }
-      }
-
-      function proveedoresSugeridosModelo(){
+    // Sugiere proveedores según coincidencia con modelo en atributos
+    function proveedoresSugeridosModelo() {
         $tags = $this->input->post('tags');
 
-        $query = "SELECT E.id, E.nombre, ifnull((SELECT count(QP.id) from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = E.id and upper(QR.atributos->'$.modelo') = upper('\"$tags\"')), 0) as QtyQr from qr_proveedores QP inner join requisiciones_cotizacion QR on QP.qr = QR.id inner join empresas E on E.id = QP.empresa where E.proveedor = 1 and QP.monto > 0 and upper(QR.atributos->'$.modelo') = upper('\"" . $tags . "\"');";
-        
+        $query = "SELECT E.id, E.nombre, IFNULL((
+                      SELECT COUNT(QP.id) 
+                      FROM qr_proveedores QP 
+                      INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                      WHERE QP.monto > 0 
+                        AND QP.empresa = E.id 
+                        AND UPPER(QR.atributos->'$.modelo') = UPPER('\"$tags\"')
+                  ), 0) AS QtyQr 
+                  FROM qr_proveedores QP 
+                  INNER JOIN requisiciones_cotizacion QR ON QP.qr = QR.id 
+                  INNER JOIN empresas E ON E.id = QP.empresa 
+                  WHERE E.proveedor = 1 
+                    AND QP.monto > 0 
+                    AND UPPER(QR.atributos->'$.modelo') = UPPER('\"$tags\"')";
 
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
-      }
+        echo $res ? json_encode($res) : "";
+    }
 
-    
-      function ajax_getProveedor(){
+    // Obtiene información detallada de un proveedor asignado a una QR
+    function ajax_getProveedor() {
         $id = $this->input->post('id');
 
-        $query = "SELECT QP.id, QP.qr, QP.empresa, QP.costos, QP.monto, QP.moneda, QP.total, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, QP.vencimiento, QP.nombre_archivo, E.nombre, P.entrega, QR.nombre_archivoEjemplo  from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id join requisiciones_cotizacion QR on QR.id =QP.qr where QP.id='" . $id . "'";
+        $query = "SELECT QP.id, QP.qr, QP.empresa, QP.costos, QP.monto, QP.moneda, QP.total, 
+                         QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, 
+                         QP.seleccionado, QP.vencimiento, QP.nombre_archivo, E.nombre, 
+                         P.entrega, QR.nombre_archivoEjemplo 
+                  FROM qr_proveedores QP 
+                  INNER JOIN empresas E ON E.id = QP.empresa 
+                  INNER JOIN proveedores P ON P.empresa = E.id 
+                  JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                  WHERE QP.id = '$id'";
 
         $res = $this->Modelo->consulta($query, TRUE);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else
-        {
-            echo "";
-        }
-
+        echo $res ? json_encode($res) : "";
     }
 
-    function ajax_getProveedores(){
+    // Obtiene lista de proveedores filtrando por texto y condiciones necesarias
+    function ajax_getProveedores() {
         $texto = $this->input->post('texto');
-        $query = "SELECT E.* from empresas E inner join proveedores P on E.id = P.empresa where 1=1";
-        $query .= " and E.proveedor = 1 and (P.tags like '%,".$texto.",%' or E.nombre like '%".$texto."%')";
-        $query .= " and !isnull(P.entrega) and json_length(P.tipo) > 0 and json_length(P.formas_pago) > 0";
+
+        $query = "SELECT E.* 
+                  FROM empresas E 
+                  INNER JOIN proveedores P ON E.id = P.empresa 
+                  WHERE E.proveedor = 1 
+                    AND (P.tags LIKE '%,$texto,%' OR E.nombre LIKE '%$texto%') 
+                    AND !ISNULL(P.entrega) 
+                    AND JSON_LENGTH(P.tipo) > 0 
+                    AND JSON_LENGTH(P.formas_pago) > 0";
 
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
-
+        echo $res ? json_encode($res) : "";
     }
 
-    function ajax_setEstatusQR(){
+    // Cambia el estatus de una QR, registra en bitácora y envía correo si aplica
+    function ajax_setEstatusQR() {
         $estatus = $this->input->post('estatus');
         $idqr = $this->input->post('idqr');
         $liberador = $this->session->id;
-        //echo $estatus;die();
 
-        $query = "update requisiciones_cotizacion set estatus='" . $estatus . "' where id='" . $idqr . "'";
-
-        if($estatus == "LIBERADO")
-        {
-            $query = "update requisiciones_cotizacion set estatus='" . $estatus . "', fecha_liberacion = CURRENT_TIMESTAMP(), liberador = $liberador where id='" . $idqr . "'";
+        if ($estatus == "LIBERADO") {
+            $query = "UPDATE requisiciones_cotizacion 
+                      SET estatus = '$estatus', 
+                          fecha_liberacion = CURRENT_TIMESTAMP(), 
+                          liberador = $liberador 
+                      WHERE id = '$idqr'";
+        } else {
+            $query = "UPDATE requisiciones_cotizacion 
+                      SET estatus = '$estatus' 
+                      WHERE id = '$idqr'";
         }
 
-        $res = $this->Modelo->update($query);
-		$bitacoraQR['qr']=intval($idqr);
-                $bitacoraQR['user']=$this->session->id;
-                $bitacoraQR['estatus']=$estatus;
-                $this->Modelo->estatusQR($bitacoraQR);
-        if($res){
+        $this->Modelo->update($query);
 
-            if($estatus == "LIBERADO" | $estatus == "COMPRA APROBADA")
-            {
-                $qr = $this->Modelo->getDetalleQR($idqr);
-                //echo var_dump($qr);die();
-                $datos['id'] = $idqr;
-                $datos['fecha'] = date('d/m/Y h:i A');
-                $datos['usuario'] = $qr->User;
-                $datos['cliente'] = $qr->Client;
-                $datos['prioridad'] = $qr->prioridad;
-                $datos['unidad'] = $qr->unidad;
-                $datos['cantidad'] = $qr->cantidad;
-                $datos['descripcion'] = $qr->descripcion;
-                $datos['atributos'] = $qr->atributos;
-                $datos['comentarios'] = $qr->comentarios;
-                $datos['correos'] = array($qr->correo);
+        // Registra cambio en bitácora
+        $bitacoraQR = array(
+            'qr' => intval($idqr),
+            'user' => $this->session->id,
+            'estatus' => $estatus
+        );
+        $this->Modelo->estatusQR($bitacoraQR);
 
+        // Si fue exitoso, enviar correo si es necesario
+        if (in_array($estatus, ["LIBERADO", "COMPRA APROBADA"])) {
+            $qr = $this->Modelo->getDetalleQR($idqr);
+            $datos = array(
+                'id' => $idqr,
+                'fecha' => date('d/m/Y h:i A'),
+                'usuario' => $qr->User,
+                'cliente' => $qr->Client,
+                'prioridad' => $qr->prioridad,
+                'unidad' => $qr->unidad,
+                'cantidad' => $qr->cantidad,
+                'descripcion' => $qr->descripcion,
+                'atributos' => $qr->atributos,
+                'comentarios' => $qr->comentarios,
+                'correos' => array($qr->correo),
+                'estatus' => $estatus
+            );
 
-                $Notificar = json_decode($qr->notificaciones);
-
-                $query = "SELECT U.correo from usuarios U where 1 != 1 ";
-                foreach ($Notificar as $value) {
-                    $query .= " or U.id = $value";
-                }
-                $res = $this->Conexion->consultar($query);
-                foreach ($res as $key => $value) {
-                    array_push($datos['correos'], $value->correo);
-                }
-
-                
-                $datos['estatus'] = $estatus;
-                //echo var_dump($datos);die();
-
-                $this->correos->liberarQR($datos);
+            // Añade notificados adicionales
+            $Notificar = json_decode($qr->notificaciones);
+            $query = "SELECT U.correo FROM usuarios U WHERE 1 != 1";
+            foreach ($Notificar as $value) {
+                $query .= " OR U.id = $value";
             }
-            echo "1";
+            $res = $this->Conexion->consultar($query);
+            foreach ($res as $value) {
+                array_push($datos['correos'], $value->correo);
+            }
+
+            $this->correos->liberarQR($datos);
         }
-        else{
-            echo "";
-        }
+
+        echo "1";
     }
 
-    function ajax_setEstatusMsjQR(){
+    // Cambia el estatus de una QR e incluye un comentario con notificación por correo
+    function ajax_setEstatusMsjQR() {
         $idqr = $this->input->post('idqr');
         $estatus = $this->input->post('estatus');
         $comentario_original = $this->input->post('comentario');
@@ -720,1621 +785,1578 @@ if ($_info->coments) {
         $tags = $this->input->post('txtTags');
         $correos = explode(",", $tags);
 
+        $query = "UPDATE requisiciones_cotizacion SET estatus = '$estatus' WHERE id = '$idqr'";
+        $this->Modelo->update($query);
 
-
-        $query = "UPDATE requisiciones_cotizacion set estatus='" . $estatus . "' where id='" . $idqr . "'";
-	$bitacoraQR['qr']=intval($idqr);
-        $bitacoraQR['user']=$this->session->id;
-        $bitacoraQR['estatus']=$estatus;
+        // Bitácora
+        $bitacoraQR = array(
+            'qr' => intval($idqr),
+            'user' => $this->session->id,
+            'estatus' => $estatus
+        );
         $this->Modelo->estatusQR($bitacoraQR);
 
-        $res = $this->Modelo->update($query);
-        if($res){
+        // Guarda el comentario del cambio de estatus
+        $data = array(
+            'qr' => $idqr,
+            'usuario' => $this->session->id,
+            'comentario' => $comentario
+        );
+        $this->Modelo->agregar_comentario($data);
 
-            $data = array(
-                'qr' => $idqr,
-                'usuario' => $this->session->id,
+        $qr = $this->Modelo->getDetalleQR($idqr);
+        $datos = array(
+            'id' => $idqr,
+            'fecha' => date('d/m/Y h:i A'),
+            'usuario' => $qr->User,
+            'cliente' => $qr->Client,
+            'prioridad' => $qr->prioridad,
+            'unidad' => $qr->unidad,
+            'cantidad' => $qr->cantidad,
+            'descripcion' => $qr->descripcion,
+            'atributos' => $qr->atributos,
+            'comentarios' => $comentario_original,
+            'correos' => array($qr->correo)
+        );
+
+        // Envía correo según tipo de estatus
+        if ($estatus == "RECHAZADO" || $estatus == "COMPRA RECHAZADA") {
+            $this->correos->rechazoQR($datos);
+        } else if ($estatus == "LIBERADO") {
+            $this->correos->liberarQR($datos);
+        }
+
+        // Si se agregaron correos adicionales manualmente
+        if (count($correos) > 0) {
+            $datos2 = array(
+                'id' => $idqr,
                 'comentario' => $comentario,
+                'correos' => $correos
             );
-            $this->Modelo->agregar_comentario($data);
-            
-            $qr = $this->Modelo->getDetalleQR($idqr);
-            
-            $datos['id'] = $idqr;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $qr->User;
-            $datos['cliente'] = $qr->Client;
-            $datos['prioridad'] = $qr->prioridad;
-            $datos['unidad'] = $qr->unidad;
-            $datos['cantidad'] = $qr->cantidad;
-            $datos['descripcion'] = $qr->descripcion;
-            $datos['atributos'] = $qr->atributos;
-            $datos['comentarios'] = $comentario_original;
-            $datos['correos'] = array($qr->correo);
-
-
-            if($estatus == "RECHAZADO" | $estatus == "COMPRA RECHAZADA")
-            {
-                $this->correos->rechazoQR($datos);
-            }
-            else if($estatus == "LIBERADO")
-            {
-                $this->correos->liberarQR($datos);
-            }
-
-            if(count($correos) > 0)
-            {
-                $datos2['id'] = $idqr;
-                $datos2['comentario'] = $comentario;
-                $datos2['correos'] = $correos;
-                $this->correos->comentarioQR($datos2);
-            }
-
-            
-
-
-            echo $comentario;
+            $this->correos->comentarioQR($datos2);
         }
-        else{
-            echo "";
-        }
+
+        echo $comentario;
     }
 
-    function ajax_setProveedoresNominados(){
+        // Marca uno o varios proveedores como nominados para una QR
+    function ajax_setProveedoresNominados() {
         $res = TRUE;
+        $qr_proveedor = json_decode($this->input->post('qr_proveedores')); // IDs de proveedores a nominar
+        $qr = $this->input->post('qr'); // ID de la QR
 
-        $qr_proveedor = json_decode($this->input->post('qr_proveedores'));
-        $qr = $this->input->post('qr');
+        // Primero se desmarcan todos
+        $this->Modelo->update("UPDATE qr_proveedores SET nominado = 0 WHERE qr = $qr");
 
-        $this->Modelo->update("UPDATE qr_proveedores set nominado=0 where qr= $qr");
-
-        foreach ($qr_proveedor as $key => $value)
-        {
-            if(!$this->Modelo->update("UPDATE qr_proveedores set nominado=1 where id= $value"))
-            {
+        // Luego se marcan los seleccionados
+        foreach ($qr_proveedor as $value) {
+            if (!$this->Modelo->update("UPDATE qr_proveedores SET nominado = 1 WHERE id = $value")) {
                 $res = FALSE;
             }
         }
 
-        if($res){
-            echo "1";
-        }
-        else{
-            echo "";
-        }
+        echo $res ? "1" : "";
     }
 
+    // Sube archivo PDF asociado a una QR (como archivo principal)
     function ajax_subirArchivoQR() {
-        
         $datos['id'] = $this->input->post('qr');
-
         $datos['archivo'] = file_get_contents($_FILES['file']['tmp_name']);
         $datos['nombre_archivo'] = str_pad($datos['id'], 6, "0", STR_PAD_LEFT) . ".pdf";
-        //echo var_dump($datos['archivo']);die();
-       //echo var_dump($datos['id']);die();
-        //echo var_dump($datos);die();
-        if(!$this->Modelo->setQRFile($datos))
-        {
+
+        if (!$this->Modelo->setQRFile($datos)) {
             trigger_error("Error al subir archivo", E_USER_ERROR);
-        }
-        else {
-            //echo $datos['nombre_archivo'];
+        } else {
             echo "1";
-//	   header("location:".base_url('compras/ver_qr/' . $this->input->post('qr')));
         }
     }
 
-    function ajax_borrarArchivoQR(){
+    // Elimina el archivo PDF asociado a una QR
+    function ajax_borrarArchivoQR() {
         $datos['id'] = $this->input->post('qr');
         $datos['archivo'] = "";
         $datos['nombre_archivo'] = "";
-        
-        if(!$this->Modelo->setQRFile($datos))
-        {
-            trigger_error("Error al subir archivo", E_USER_ERROR);
-        }
-        else {
-            //echo $datos['nombre_archivo'];
-            echo "1";
 
+        if (!$this->Modelo->setQRFile($datos)) {
+            trigger_error("Error al borrar archivo", E_USER_ERROR);
+        } else {
+            echo "1";
         }
     }
 
+    // Sube archivo de evidencia (como propuesta de proveedor)
     function ajax_subirEvidencia() {
         $datos['id'] = $this->input->post('qr_prov');
         $datos['archivo'] = file_get_contents($_FILES['file']['tmp_name']);
         $datos['nombre_archivo'] = $_FILES['file']['name'];
-        ///echo var_dump($datos);die();
-        if(!$this->Modelo->updateProveedor($datos))
-        {
-            trigger_error("Error al subir archivo", E_USER_ERROR);
-        }
-        else {
+
+        if (!$this->Modelo->updateProveedor($datos)) {
+            trigger_error("Error al subir evidencia", E_USER_ERROR);
+        } else {
             echo $datos['nombre_archivo'];
         }
     }
 
-    function ajax_eliminarEvidencia(){
+    // Elimina archivo de evidencia cargado por proveedor
+    function ajax_eliminarEvidencia() {
         $datos['id'] = $this->input->post('qr_prov');
         $datos['archivo'] = null;
         $datos['nombre_archivo'] = null;
 
-        if(!$this->Modelo->updateProveedor($datos))
-        {
-            trigger_error("Error al eliminar archivo", E_USER_ERROR);
-        }
-        else {
+        if (!$this->Modelo->updateProveedor($datos)) {
+            trigger_error("Error al eliminar evidencia", E_USER_ERROR);
+        } else {
             echo "1";
         }
     }
 
-    function getEvidencia($qr_prov){
+    // Muestra un archivo de evidencia en el navegador (inline PDF)
+    function getEvidencia($qr_prov) {
         $row = $this->descargas_model->getFile($qr_prov, 'qr_proveedores');
         $file = $row->archivo;
         $nombre = $row->nombre_archivo;
 
-        //$file = 'dummy.pdf';
         header('Content-type: application/pdf');
         header('Content-Disposition: inline; filename="' . $nombre . '"');
         header('Content-Transfer-Encoding: binary');
-        //header('Content-Length: ' . filesize($file));
         header('Accept-Ranges: bytes');
 
         echo $file;
-
-        //force_download($nombre, $file);
     }
 
-    function getQrFile($qr){
-         
+    // Muestra el archivo principal PDF de una QR
+    function getQrFile($qr) {
         $row = $this->descargas_model->getFile($qr, 'requisiciones_cotizacion');
         $file = $row->archivo;
         $nombre = $row->nombre_archivo;
-    //echo var_dump($file);die();
-        //$file = 'dummy.pdf';
+
         header('Content-type: application/pdf');
         header('Content-Disposition: inline; filename="' . $nombre . '"');
         header('Content-Transfer-Encoding: binary');
-        //header('Content-Length: ' . filesize($file));
         header('Accept-Ranges: bytes');
 
         echo $file;
-
-        //force_download($nombre, $file);
     }
 
+    // Agrega un comentario a una QR y notifica a usuarios relacionados
     function agregarComentario() {
         $idQr = $this->input->post('idQr');
         $comentario = $this->input->post('comentario');
         $tags = $this->input->post('txtTags');
         $correos = explode(",", $tags);
 
-        $query = "SELECT ur.correo as correoReq, ua.correo as correoA FROM `requisiciones_cotizacion` qr JOIN usuarios ur on ur.id = qr.usuario left join usuarios ua on ua.id=qr.asignado WHERE qr.id = ".$idQr;
-        $res = $this->Modelo->consulta($query, TRUE);
-        $mails= $res->correoReq.','.$res->correoA;
-        $mails= explode(',', $mails);
-        $data['id'] = $idQr;
-        $data['comentario'] = $comentario;
-        $data['correos'] = $mails;
-        $data['usuario']= $this->session->nombre;
-        $this->correos->comentarioQR($data);     
+        // Obtiene correos del solicitante y del asignado
+        $query = "SELECT ur.correo AS correoReq, ua.correo AS correoA 
+                  FROM requisiciones_cotizacion qr 
+                  JOIN usuarios ur ON ur.id = qr.usuario 
+                  LEFT JOIN usuarios ua ON ua.id = qr.asignado 
+                  WHERE qr.id = $idQr";
 
+        $res = $this->Modelo->consulta($query, TRUE);
+        $mails = explode(',', $res->correoReq . ',' . $res->correoA);
+
+        // Enviar correo principal de comentario
+        $correoData = array(
+            'id' => $idQr,
+            'comentario' => $comentario,
+            'correos' => $mails,
+            'usuario' => $this->session->nombre
+        );
+        $this->correos->comentarioQR($correoData);
+
+        // Guarda comentario en base de datos
         $data = array(
             'qr' => $idQr,
             'usuario' => $this->session->id,
-            'comentario' => $comentario,
+            'comentario' => $comentario
         );
-
         $this->Modelo->agregar_comentario($data);
 
-        if(count($correos) > 0)
-        {
-            $datos['id'] = $idQr;
-            $datos['comentario'] = $comentario;
-            $datos['correos'] = $correos;
-            $datos['usuario']= $this->session->nombre;
+        // Enviar notificaciones a correos adicionales si existen
+        if (count($correos) > 0) {
+            $datos = array(
+                'id' => $idQr,
+                'comentario' => $comentario,
+                'correos' => $correos,
+                'usuario' => $this->session->nombre
+            );
             $this->correos->comentarioQR($datos);
         }
 
         redirect(base_url('compras/ver_qr/' . $idQr));
     }
 
+
+        // Obtiene resumen de propuestas por marca para un proveedor específico
     function ajax_getResumenMarca() {
         $prov = $this->input->post('prov');
         $marca = $this->input->post('marca');
 
-        $query = "SELECT QP.id as idQP, QP.qr, QR.descripcion, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.nombre_archivo, QP.vencimiento from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = '$prov' and upper(QR.atributos->'$.marca') = upper('\"$marca\"')";
+        $query = "SELECT QP.id AS idQP, QP.qr, QR.descripcion, QP.total, QP.moneda, 
+                         QP.tiempo_entrega, QP.dias_habiles, QP.nombre_archivo, QP.vencimiento 
+                  FROM qr_proveedores QP 
+                  INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                  WHERE QP.monto > 0 
+                    AND QP.empresa = '$prov' 
+                    AND UPPER(QR.atributos->'$.marca') = UPPER('\"$marca\"')";
+
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
+        echo $res ? json_encode($res) : "";
     }
 
+    // Obtiene resumen de propuestas por modelo para un proveedor específico
     function ajax_getResumenModelo() {
         $prov = $this->input->post('prov');
         $modelo = $this->input->post('modelo');
 
-        $query = "SELECT QP.id as idQP, QP.qr, QR.descripcion, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.nombre_archivo, QP.vencimiento from qr_proveedores QP inner join requisiciones_cotizacion QR on QR.id = QP.qr where QP.monto > 0 and QP.empresa = '$prov' and upper(QR.atributos->'$.modelo') = upper('\"$modelo\"')";
+        $query = "SELECT QP.id AS idQP, QP.qr, QR.descripcion, QP.total, QP.moneda, 
+                         QP.tiempo_entrega, QP.dias_habiles, QP.nombre_archivo, QP.vencimiento 
+                  FROM qr_proveedores QP 
+                  INNER JOIN requisiciones_cotizacion QR ON QR.id = QP.qr 
+                  WHERE QP.monto > 0 
+                    AND QP.empresa = '$prov' 
+                    AND UPPER(QR.atributos->'$.modelo') = UPPER('\"$modelo\"')";
 
         $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
+        echo $res ? json_encode($res) : "";
     }
 
-    function ajax_getPRS_QR(){ //VER PR's RECIENTES CREADAS APARTIR DE LA ACTUAL QR... ANTES DE CREAR PR
+    // Consulta PRs activas relacionadas a una QR específica
+    function ajax_getPRS_QR() {
         $idQR = $this->input->post('id_qr');
-        $query = "SELECT PR.id, PR.fecha, PR.estatus, concat(U.nombre,' ',U.paterno) as User FROM prs PR inner join usuarios U on PR.usuario = U.id where (PR.estatus != 'CANCELADO' and PR.estatus != 'CERRADO') and PR.qr = $idQR;";
-//echo var_dump($query);die();
+
+        $query = "SELECT PR.id, PR.fecha, PR.estatus, CONCAT(U.nombre, ' ', U.paterno) AS User 
+                  FROM prs PR 
+                  INNER JOIN usuarios U ON PR.usuario = U.id 
+                  WHERE (PR.estatus != 'CANCELADO' AND PR.estatus != 'CERRADO') 
+                    AND PR.qr = $idQR";
+
         $res = $this->Conexion->consultar($query);
-        if($res){
-            echo json_encode($res);
-        }
-        else{
-            echo "";
-        }
+        echo $res ? json_encode($res) : "";
     }
 
-    function dashboard(){
-        $data['asignado'] = $this->Modelo->usuariosCompras();
+    // Carga el dashboard general de compras
+    function dashboard() {
+        $data['asignado'] = $this->Modelo->usuariosCompras(); // Usuarios del área de compras
         $this->load->view('header');
         $this->load->view('compras/dashboard', $data);
     }
 
-    function ajax_getReporteQR(){
+    // Genera reporte resumen de QRs activas para el dashboard
+    function ajax_getReporteQR() {
         $asignado = $this->input->post('asignado');
-        $us=null;
-        $usF=null;
-        if ($asignado != 'TODO') {
-            $us =' and asignado ='.$asignado;
-            //$usF =' where asignado ='.$asignado;
-            
-        }
-        $query = 'SELECT count(*) as Total, (SELECT count(*) FROM requisiciones_cotizacion where estatus = "ABIERTO" and fecha > "2021-01-01 00:00:00"'.$us.') as Abiertos, (SELECT min(fecha) FROM requisiciones_cotizacion where estatus = "ABIERTO" and fecha > "2021-01-01 00:00:00"'.$us.') as ultAbiertos,';
-        $query .= ' (SELECT count(*) FROM requisiciones_cotizacion where estatus = "RECHAZADO" and fecha > "2021-01-01 00:00:00"'.$us.') as Rechazados, (SELECT min(fecha) FROM requisiciones_cotizacion where estatus = "RECHAZADO" and fecha > "2021-01-01 00:00:00"'.$us.') as ultRechazados,';
-        $query .= ' (SELECT count(*) FROM requisiciones_cotizacion where estatus = "COTIZANDO" and fecha > "2021-01-01 00:00:00"'.$us.') as Cotizando, (SELECT min(fecha) FROM requisiciones_cotizacion where estatus = "COTIZANDO" and fecha > "2021-01-01 00:00:00"'.$us.') as ultCotizando';
-        $query .= ' FROM requisiciones_cotizacion where fecha > "2021-01-01 00:00:00"'.$us;
-        //echo $query;die();
+        $us = ($asignado != 'TODO') ? " AND asignado = $asignado" : "";
+
+        $query = "SELECT 
+                    COUNT(*) AS Total,
+                    (SELECT COUNT(*) FROM requisiciones_cotizacion WHERE estatus = 'ABIERTO' AND fecha > '2021-01-01 00:00:00' $us) AS Abiertos,
+                    (SELECT MIN(fecha) FROM requisiciones_cotizacion WHERE estatus = 'ABIERTO' AND fecha > '2021-01-01 00:00:00' $us) AS ultAbiertos,
+                    (SELECT COUNT(*) FROM requisiciones_cotizacion WHERE estatus = 'RECHAZADO' AND fecha > '2021-01-01 00:00:00' $us) AS Rechazados,
+                    (SELECT MIN(fecha) FROM requisiciones_cotizacion WHERE estatus = 'RECHAZADO' AND fecha > '2021-01-01 00:00:00' $us) AS ultRechazados,
+                    (SELECT COUNT(*) FROM requisiciones_cotizacion WHERE estatus = 'COTIZANDO' AND fecha > '2021-01-01 00:00:00' $us) AS Cotizando,
+                    (SELECT MIN(fecha) FROM requisiciones_cotizacion WHERE estatus = 'COTIZANDO' AND fecha > '2021-01-01 00:00:00' $us) AS ultCotizando
+                  FROM requisiciones_cotizacion 
+                  WHERE fecha > '2021-01-01 00:00:00' $us";
+
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
 
-    function ajax_getReportePR(){
-        $query = 'SELECT count(*) as Total, (SELECT count(*) FROM prs where estatus = "PENDIENTE") as Pendientes, (SELECT min(fecha) FROM prs where estatus = "PENDIENTE") as ultPendientes,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "APROBADO") as Aprobados, (SELECT min(fecha) FROM prs where estatus = "APROBADO") as ultAprobados,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "RECHAZADO") as Rechazados, (SELECT min(fecha) FROM prs where estatus = "RECHAZADO") as ultRechazados,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "EN SELECCION") as Seleccion, (SELECT min(fecha) FROM prs where estatus = "EN SELECCION") as ultSeleccion,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "PO AUTORIZADA") as PO_Autorizada, (SELECT min(fecha) FROM prs where estatus = "PO AUTORIZADA") as ultPO_Autorizada,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "EN PO") as En_PO, (SELECT min(fecha) FROM prs where estatus = "EN PO") as ultEn_PO,';
-        $query .= ' (SELECT count(*) FROM prs where estatus = "POR RECIBIR") as Por_Recibir, (SELECT min(fecha) FROM prs where estatus = "POR RECIBIR") as ultPor_Recibir';
-        $query .= ' FROM prs;';
+    // Genera reporte resumen de PRs activas para el dashboard
+    function ajax_getReportePR() {
+        $query = "SELECT 
+                    COUNT(*) AS Total,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'PENDIENTE') AS Pendientes,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'PENDIENTE') AS ultPendientes,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'APROBADO') AS Aprobados,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'APROBADO') AS ultAprobados,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'RECHAZADO') AS Rechazados,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'RECHAZADO') AS ultRechazados,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'EN SELECCION') AS Seleccion,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'EN SELECCION') AS ultSeleccion,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'PO AUTORIZADA') AS PO_Autorizada,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'PO AUTORIZADA') AS ultPO_Autorizada,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'EN PO') AS En_PO,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'EN PO') AS ultEn_PO,
+                    (SELECT COUNT(*) FROM prs WHERE estatus = 'POR RECIBIR') AS Por_Recibir,
+                    (SELECT MIN(fecha) FROM prs WHERE estatus = 'POR RECIBIR') AS ultPor_Recibir
+                  FROM prs";
+
         $res = $this->Conexion->consultar($query, TRUE);
         echo json_encode($res);
     }
 
-    function ajax_getReportePO(){
-        $requisitor = $this->input->post('requisitor');
-        $us=null;
-        $usF=null;
-        if ($requisitor != 'TODO') {
-            $us =' and usuario ='.$requisitor;
-            //$usF =' where asignado ='.$asignado;
-            
+    // Reporte de órdenes de compra por estatus
+function ajax_getReportePO() {
+    $requisitor = $this->input->post('requisitor');
+    $us = ($requisitor != 'TODO') ? " and usuario = $requisitor" : "";
+
+    $query = 'SELECT count(*) as Total, ';
+
+    // Subconsultas para contar y obtener la fecha más antigua de cada estatus
+    $estados = [
+        'EN PROCESO' => 'EnProceso',
+        'PENDIENTE AUTORIZACION' => 'PendienteAutorizacion',
+        'AUTORIZADA' => 'Autorizada',
+        'RECHAZADA' => 'Rechazada',
+        'ORDENADA' => 'Ordenada',
+        'RECIBIDA' => 'Recibida',
+        'RECIBIDA PARCIAL' => 'Parcial',
+        'RECIBIDA TOTAL' => 'RecibidaTotal',
+        'LISTA PARA CERRAR' => 'Lista'
+    ];
+
+    foreach ($estados as $estatus => $alias) {
+        $query .= "(SELECT count(*) FROM ordenes_compra WHERE estatus = \"$estatus\" AND publish = 1 AND fecha > \"2022-01-01 00:00:00\"$us) AS $alias, ";
+        $query .= "(SELECT MIN(fecha) FROM ordenes_compra WHERE estatus = \"$estatus\" AND publish = 1 AND fecha > \"2022-01-01 00:00:00\"$us) AS ult$alias, ";
+    }
+
+    // Remueve la última coma
+    $query = rtrim($query, ', ');
+
+    // Consulta principal
+    $query .= " FROM ordenes_compra WHERE publish = 1 AND fecha > \"2022-01-01 00:00:00\"$us";
+
+    $res = $this->Conexion->consultar($query, TRUE);
+    echo json_encode($res);
+}
+
+// Carga vista para solicitudes de compra (PR)
+function solicitudes_compra($estatus = 'TODO') {
+    $estatus = strtoupper($estatus);
+    $data['estatus'] = str_replace('_', ' ', $estatus);
+    $data['otros_aprobadores'] = ($data['estatus'] == 'TODO') ? '' : 'checked';
+
+    $this->load->view('header');
+    $this->load->view('compras/catalogo_pr', $data);
+}
+
+// Vista detallada de una PR
+function ver_pr($id) {
+    $data['comentarios'] = $this->Modelo->verPr_comentarios($id);
+    $data['comentarios_fotos'] = $this->Modelo->verPr_comentarios_fotos($id);
+    $data['surtidorPR'] = $this->Modelo->surtidorPR($id);
+    $data['atributos'] = $this->Modelo->atributosPr($id);
+    $data['pr'] = $this->Modelo->getPR($id);
+
+    // Determina color de botón según estatus
+    switch ($data['pr']->estatus) {
+        case 'APROBADO':
+        case 'PO AUTORIZADA':
+            $data['btn_estatus'] = "btn-success"; break;
+        case 'PENDIENTE':
+        case 'EN SELECCION':
+        case 'POR RECIBIR':
+            $data['btn_estatus'] = "btn-warning"; break;
+        case 'EN PO':
+        case 'CERRADO':
+            $data['btn_estatus'] = "btn-primary"; break;
+        case 'RECHAZADO':
+            $data['btn_estatus'] = "btn-danger"; break;
+        case 'PROCESADO':
+        case 'CANCELADO':
+            $data['btn_estatus'] = "btn-default"; break;
+        default:
+            $data['btn_estatus'] = "btn-warning"; break;
+    }
+
+    $this->load->view('header');
+    $this->load->view('compras/ver_pr', $data);
+}
+
+// Vista de PRs del usuario actual
+function mis_prs() {
+    $this->load->view('header');
+    $this->load->view('compras/mis_prs');
+}
+
+// Genera una nueva PR desde una QR
+function ajax_generarPR() {
+    $this->load->model('compras_model');
+
+    $qrt = $this->input->post('qr');
+    $qty = $this->input->post('qty');
+    $precio = $this->input->post('precio');
+    $descripcion = $this->input->post('descripcion');
+    $serie = $this->input->post('serie');
+    $qr_prov = $this->input->post('qr_prov');
+    $item = $this->input->post('item');
+    $id = $this->input->post('id');
+
+    $qr = $this->Modelo->getDetalleQR($qrt);
+    $qr_prov = $this->Modelo->getQRProv($qr_prov);
+
+    // Modifica atributos si existe clave 'serie'
+    $att = json_decode($qr->atributos, TRUE);
+    if (array_key_exists('serie', $att)) {
+        $att['serie'] = $serie ?: 'N/A';
+        if ($id) $att['id'] = $id;
+        if ($item) $att['item'] = $item;
+    }
+
+    // Datos para la nueva PR
+    $datos = [
+        'qr' => $qr->id,
+        'qr_proveedor' => $qr_prov->id,
+        'usuario' => $this->session->id,
+        'prioridad' => $qr->prioridad,
+        'tipo' => $qr->tipo,
+        'subtipo' => $qr->subtipo,
+        'cantidad' => $qty,
+        'precio_unitario' => $qr_prov->monto,
+        'importe' => $qr_prov->monto * $qty,
+        'moneda' => $qr_prov->moneda,
+        'unidad' => $qr->unidad,
+        'clave_unidad' => $qr->clave_unidad,
+        'descripcion' => $descripcion,
+        'atributos' => json_encode($att),
+        'critico' => $qr->critico,
+        'destino' => $qr->destino,
+        'lugar_entrega' => $qr->lugar_entrega,
+        'comentarios' => "",
+        'estatus' => "PENDIENTE"
+    ];
+
+    $funciones['fecha'] = 'CURRENT_TIMESTAMP()';
+    $res = $this->Conexion->insertar('prs', $datos, $funciones);
+
+    // Guarda bitácora de estatus inicial
+    $this->compras_model->estatusPR([
+        'pr' => intval($res),
+        'user' => $this->session->id,
+        'estatus' => 'PENDIENTE'
+    ]);
+
+    // Si es SERVICIO, transfiere atributos temporales
+    if ($qr->tipo == "SERVICIO" || ($qr->tipo == "PRODUCTO" && $qr->destino == "VENTA")) {
+        $result = $this->Conexion->consultar("SELECT * FROM qr_atributos_temp WHERE idQr = $qrt");
+        if ($result) {
+            foreach ($result as $elem) {
+                $atributosPR = [
+                    'idPr' => intval($res),
+                    'item' => $elem->item,
+                    'asignado' => $elem->asignado
+                ];
+                if ($qr->tipo == "SERVICIO") {
+                    $atributosPR['equipo'] = $elem->equipo;
+                    $atributosPR['serie'] = $elem->serie;
+                    $atributosPR['modelo'] = $elem->modelo;
+                    $atributosPR['fabricante'] = $elem->fabricante;
+                }
+                $this->Conexion->insertar('pr_atributos', $atributosPR);
+            }
+            $this->Conexion->eliminar('qr_atributos_temp', ['idQr' => $qrt]);
         }
-        $query = 'SELECT count(*) as Total, (SELECT count(*) FROM ordenes_compra where estatus = "EN PROCESO" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as EnProceso, (SELECT min(fecha) FROM ordenes_compra where estatus = "EN PROCESO" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultEnProceso,'; 
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "PENDIENTE AUTORIZACION" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as PendienteAutorizacion, (SELECT min(fecha) FROM ordenes_compra where estatus = "PENDIENTE AUTORIZACION" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultPendienteAutorizacion,';
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "AUTORIZADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Autorizada, (SELECT min(fecha) FROM ordenes_compra where estatus = "AUTORIZADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultAutorizada,';
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "RECHAZADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Rechazada, (SELECT min(fecha) FROM ordenes_compra where estatus = "RECHAZADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultRechazada,';
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "ORDENADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Ordenada, (SELECT min(fecha) FROM ordenes_compra where estatus = "ORDENADA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultOrdenada,';
-        
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "RECIBIDA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Recibida, (SELECT min(fecha) FROM ordenes_compra where estatus = "RECIBIDA" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultRecibida,';
+    }
 
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "RECIBIDA PARCIAL" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Parcial, (SELECT min(fecha) FROM ordenes_compra where estatus = "RECIBIDA PARCIAL" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultParcial,';
+    // Enviar correo si se generó correctamente
+    if ($res > 0) {
+        $correoData = [
+            'id' => $res,
+            'fecha' => date('d/m/Y h:i A'),
+            'usuario' => $this->session->nombre,
+            'cantidad' => $qty,
+            'unidad' => $qr->unidad,
+            'descripcion' => $qr->descripcion,
+            'atributos' => $qr->atributos,
+            'prioridad' => $qr->prioridad,
+            'comentarios' => "",
+            'correos' => array_merge([$this->session->correo], $this->Modelo->getAprobadorPR($this->session->id, $qr->destino))
+        ];
+        $this->correos_pr->creacionPR($correoData);
+        echo $res;
+    }
+}
 
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "RECIBIDA TOTAL" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as RecibidaTotal, (SELECT min(fecha) FROM ordenes_compra where estatus = "RECIBIDA TOTAL" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as ultRecibidaTotal,';
-        
-        $query .= ' (SELECT count(*) FROM ordenes_compra where estatus = "LISTA PARA CERRAR" and publish = 1 and  fecha > "2022-01-01 00:00:00"'.$us.') as Lista, (SELECT min(fecha) FROM ordenes_compra where estatus = "LISTA PARA CERRAR"'.$us.') as ultLista';
-        $query .= ' FROM ordenes_compra where publish = 1 and  fecha > "2022-01-01 00:00:00"' .$us.'';
-        //echo $query;die();
-        $res = $this->Conexion->consultar($query, TRUE);
+    // Edita cantidad e importe de una PR, reinicia estatus a 'PENDIENTE'
+function ajax_editarPR() {
+    $id = $this->input->post('id');
+    $qty = $this->input->post('qty');
+
+    $query = "UPDATE prs SET cantidad = $qty, importe = precio_unitario * cantidad, estatus = 'PENDIENTE' WHERE id = $id";
+    $this->Conexion->comando($query);
+
+    echo "1";
+}
+
+// Recupera lista de PRs filtradas por múltiples criterios
+function ajax_getPRs() {
+    $curUser = $this->session->id;
+    $misprs = $this->input->post('misprs');
+    $prioridad = json_decode($this->input->post('prioridad'));
+    $estatus = $this->input->post('estatus');
+    $texto = $this->input->post('texto');
+    $parametro = $this->input->post('parametro');
+    $fecha1 = $this->input->post('fecha1');
+    $fecha2 = $this->input->post('fecha2');
+    $f1 = $fecha1 . ' 00:00:00';
+    $f2 = $fecha2 . ' 23:59:59';
+    $tipo = json_decode($this->input->post('tipo'));
+    $stock = $this->input->post('stock');
+    $archivo = $this->input->post('archivo');
+
+    $query = "SELECT 
+        PR.id, PR.fecha, PR.usuario, PR.prioridad, PR.tipo, PR.subtipo,
+        PR.cantidad, PR.unidad, PR.clave_unidad, PR.descripcion, PR.atributos,
+        PR.critico, PR.destino, PR.lugar_entrega, PR.comentarios, PR.estatus,
+        CONCAT(U.nombre, ' ', U.paterno) AS User,
+        U.autorizador_compras, U.autorizador_compras_venta, PR.stock,
+        IFNULL((
+            SELECT OCC.po 
+            FROM ordenes_compra_conceptos OCC
+            INNER JOIN ordenes_compra OC ON OCC.po = OC.id
+            WHERE OCC.pr = PR.id AND OC.estatus != 'CANCELADA' LIMIT 1
+        ), 0) AS POActual
+        FROM prs PR
+        LEFT JOIN usuarios U ON PR.usuario = U.id
+        WHERE 1 = 1";
+
+    if ($estatus != 'TODO') {
+        $query .= " AND PR.estatus = '$estatus'";
+    }
+
+    if (count($prioridad) > 0) {
+        $query .= " AND (0";
+        foreach ($prioridad as $value) {
+            $query .= " OR PR.prioridad = '$value'";
+        }
+        $query .= ")";
+    }
+
+    if ($misprs == "1") {
+        $query .= " AND IF(PR.destino = 'VENTA', U.autorizador_compras_venta = $curUser, U.autorizador_compras = $curUser)";
+    }
+
+    if ($stock == "1") {
+        $query .= " AND PR.stock = 1";
+    }
+
+    if (!empty($texto)) {
+        switch ($parametro) {
+            case "folio":
+                $query .= " AND PR.id = '$texto'";
+                break;
+            case "usuario":
+                $query .= " HAVING User LIKE '%$texto%'";
+                break;
+            case "contenido":
+                $query .= " AND (
+                    PR.descripcion LIKE '%$texto%' OR
+                    UPPER(PR.atributos->'$.marca') LIKE UPPER('%$texto%') OR
+                    UPPER(PR.atributos->'$.modelo') LIKE UPPER('%$texto%')
+                )";
+                break;
+            case "productos":
+                $query .= " AND PR.tipo LIKE '%$texto%'";
+                break;
+            case "servicios":
+                $query .= " AND PR.subtipo LIKE '%$texto%'";
+                break;
+        }
+    }
+
+    if (isset($tipo) && count($tipo) > 0) {
+        $query .= " AND (0";
+        foreach ($tipo as $value) {
+            $query .= " OR PR.tipo = '$value'";
+        }
+        $query .= ")";
+    }
+
+    if (!empty($fecha1) && !empty($fecha2)) {
+        $query .= " AND PR.fecha BETWEEN '$f1' AND '$f2'";
+    }
+
+    if (true) {
+        if ($archivo != 1) {
+            $query .= " AND PR.fecha > '2022-01-01 00:00:00'";
+        }
+        $query .= " ORDER BY PR.fecha DESC";
+    }
+
+    $res = $this->Modelo->consulta($query);
+
+    if ($res) {
         echo json_encode($res);
     }
+}
 
-    ////////////////////////////////////////////////////////////// PURCHASE REQUEST //////////////////////////////////////////////////////////////
-    function solicitudes_compra($estatus = 'TODO'){
-        $estatus = strtoupper($estatus);
-        $data['estatus'] = str_replace('_', ' ', $estatus);
+// Obtiene PRs del usuario actual con filtros avanzados
+function ajax_getMisPRs() {
+    $user = $this->session->id;
 
-        $data['otros_aprobadores'] = $data['estatus'] == 'TODO' ? '' : 'checked';
-        
-        $this->load->view('header');
-        $this->load->view('compras/catalogo_pr', $data);
+    $prioridad = json_decode($this->input->post('prioridad'));
+    $estatus = $this->input->post('estatus');
+    $texto = $this->input->post('texto');
+    $parametro = $this->input->post('parametro');
+    $misprs = $this->input->post('misprs');
+
+    $query = "SELECT 
+        PR.id, PR.fecha, PR.usuario, 
+        CONCAT(U.nombre, ' ', U.paterno, ' ', U.materno) AS User,
+        PR.prioridad, PR.tipo, PR.subtipo, PR.cantidad, PR.unidad, PR.clave_unidad,
+        PR.descripcion, PR.atributos, PR.critico, PR.destino, PR.lugar_entrega, 
+        PR.comentarios, PR.estatus,
+        IFNULL((
+            SELECT OCC.po 
+            FROM ordenes_compra_conceptos OCC
+            INNER JOIN ordenes_compra OC ON OCC.po = OC.id
+            WHERE OCC.pr = PR.id AND OC.estatus != 'CANCELADA' LIMIT 1
+        ), 0) AS POActual
+        FROM prs PR
+        INNER JOIN usuarios U ON U.id = PR.usuario
+        WHERE 1 = 1";
+
+    if ($misprs == "1") {
+        $query .= " AND PR.usuario = $user";
     }
 
-    function ver_pr($id){
-        
-        $data ['comentarios'] = $this->Modelo->verPr_comentarios($id);
-        $data['comentarios_fotos'] = $this->Modelo->verPr_comentarios_fotos($id);
-        $data['surtidorPR'] = $this->Modelo->surtidorPR($id);
-        $data['atributos'] = $this->Modelo->atributosPr($id);
+    if ($estatus != 'TODO') {
+        $query .= " AND PR.estatus = '$estatus'";
+    }
 
-        $data['pr'] = $this->Modelo->getPR($id);
-
-        switch ($data['pr']->estatus) 
-        {
-            case 'APROBADO':
-            case 'PO AUTORIZADA':
-            $data['btn_estatus'] = "btn-success";
-            break;
-
-            case 'PENDIENTE':
-            case 'EN SELECCION':
-            case 'POR RECIBIR':
-            $data['btn_estatus'] = "btn-warning";
-            break;
-
-            case 'EN PO':
-            case 'CERRADO':
-            $data['btn_estatus'] = "btn-primary";
-            break;
-
-            case 'RECHAZADO':
-            $data['btn_estatus'] = "btn-danger";
-            break;
-
-            case 'PROCESADO':
-            case 'CANCELADO':
-            $data['btn_estatus'] = "btn-default";
-            break;
-
-            default:
-            $data['btn_estatus'] = "btn-warning";
-            break;
+    if (count($prioridad) > 0) {
+        $query .= " AND (0";
+        foreach ($prioridad as $value) {
+            $query .= " OR PR.prioridad = '$value'";
         }
-
-        $this->load->view('header');
-        $this->load->view('compras/ver_pr', $data);
+        $query .= ")";
     }
 
-    function mis_prs(){
-        $this->load->view('header');
-        $this->load->view('compras/mis_prs');
-    }
-
-    function ajax_generarPR(){
-        $this->load->model('compras_model');
-        $qr = $this->input->post('qr');
-        $qrt=$qr;
-        $qty = $this->input->post('qty');
-        $precio = $this->input->post('precio');
-        $descripcion = $this->input->post('descripcion');
-        $serie = $this->input->post('serie');
-        $qr_prov = $this->input->post('qr_prov');
-
-        $item = $this->input->post('item');
-        $id = $this->input->post('id');
-        
-
-        $qr = $this->Modelo->getDetalleQR($qr);
-        $qr_prov = $this->Modelo->getQRProv($qr_prov);
-
-        //ATRIBUTOS
-        $att = json_decode($qr->atributos, TRUE);
-        if(array_key_exists('serie', $att)){
-            if(!$serie)
-            {
-                $serie = 'N/A';
-            }
-            $att['serie'] = $serie;
-
-            if($id)
-            {
-                $att['id'] = $id;
-            }
-            if($item)
-            {
-                $att['item'] = $item;
-            }
+    if (!empty($texto)) {
+        if ($parametro == "folio") {
+            $query .= " AND PR.id = '$texto'";
         }
+        if ($parametro == "contenido") {
+            $query .= " AND (
+                PR.descripcion LIKE '%$texto%' OR 
+                UPPER(PR.atributos->'$.marca') LIKE UPPER('%$texto%') OR 
+                UPPER(PR.atributos->'$.modelo') LIKE UPPER('%$texto%')
+            )";
+        }
+    }
 
-        $datos['qr'] = $qr->id;
-        $datos['qr_proveedor'] = $qr_prov->id;
-        $datos['usuario'] = $this->session->id;
-        $datos['prioridad'] = $qr->prioridad;
-        $datos['tipo'] = $qr->tipo;
+    $query .= " ORDER BY PR.fecha DESC";
 
-        $datos['subtipo'] = $qr->subtipo;
-        $datos['cantidad'] = $qty;
-        $datos['precio_unitario'] = $qr_prov->monto;
-        $datos['importe'] = $qr_prov->monto * $qty;
-        $datos['moneda'] = $qr_prov->moneda;
-        $datos['unidad'] = $qr->unidad;
-        $datos['clave_unidad'] = $qr->clave_unidad;
-        $datos['descripcion'] = $descripcion;
-        $datos['atributos'] = json_encode($att);
-        $datos['critico'] = $qr->critico;
-        $datos['destino'] = $qr->destino;
-        $datos['lugar_entrega'] = $qr->lugar_entrega;
-        $datos['comentarios'] = "";
-        $datos['estatus'] = "PENDIENTE";
-       // $bitacora=['PENDIENTE', date("Y-m-d h:i:sa"),$this->session->id];
+    $res = $this->Modelo->consulta($query);
+    if ($res) {
+        echo json_encode($res);
+    } else {
+        echo "";
+    }
+}
 
+// Obtiene información detallada de una PR específica
+function ajax_getPR() {
+    $id = $this->input->post('id');
 
-        $funciones['fecha'] = 'CURRENT_TIMESTAMP()';
+    $query = "SELECT PR.*, CONCAT(U.nombre, ' ', U.paterno) AS User, U.correo 
+              FROM prs PR 
+              INNER JOIN usuarios U ON U.id = PR.usuario 
+              WHERE PR.id = $id";
 
-        $res = $this->Conexion->insertar('prs', $datos, $funciones);
-        $data['pr']=intval($res);
-        $data['user']=$this->session->id;
-        $data['estatus']='PENDIENTE';
+    $res = $this->Conexion->consultar($query, TRUE);
+
+    if ($res) {
+        echo json_encode($res);
+    } else {
+        echo "";
+    }
+}
+
+// Obtiene detalles del proveedor relacionado a una PR
+function ajax_getProveedorPR() {
+    $id = $this->input->post('id');
+
+    $query = "SELECT 
+        E.id, QP.id AS idQP, P.entrega, E.nombre, 
+        QP.monto, QP.total, QP.moneda, QP.tiempo_entrega, 
+        QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, 
+        QP.nombre_archivo, QP.vencimiento 
+        FROM qr_proveedores QP 
+        INNER JOIN empresas E ON E.id = QP.empresa 
+        INNER JOIN proveedores P ON P.empresa = E.id 
+        WHERE QP.id = '$id'";
+
+    $res = $this->Modelo->consulta($query);
+    if ($res) {
+        echo json_encode($res);
+    } else {
+        echo "";
+    }
+}
+    // Cambia el estatus de una PR y envía correo si aplica
+function ajax_setEstatusPR() {
+    $this->load->model('compras_model');
+
+    $estatus = $this->input->post('estatus');
+    $id = $this->input->post('id');
+    $aprobador = $this->session->id;
+
+    // Bitácora del cambio de estatus (no se almacena en esta función, pero se construye)
+    $bitacora = [$estatus, date("Y-m-d h:i:sa"), $aprobador];
+    $estatusBit = json_encode([$bitacora]);
+
+    $query = "UPDATE prs SET estatus = '$estatus' WHERE id = '$id'";
+    $data['pr'] = $id;
+    $data['user'] = $aprobador;
+    $data['estatus'] = $estatus;
+
+    // Si fue aprobado, agrega fecha y aprobador
+    if ($estatus == "APROBADO") {
+        $query = "UPDATE prs SET estatus = '$estatus', fecha_aprobacion = CURRENT_TIMESTAMP(), aprobador = $aprobador WHERE id = '$id'";
         $this->compras_model->estatusPR($data);
-
-        if ($qr->tipo == "SERVICIO") {
-
-            $query = "SELECT * from qr_atributos_temp where idQr= ".$qrt;
-
-        $result = $this->Conexion->consultar($query);
-        if($result){
-        foreach( $result as $elem){
-            $atributosPR['idPr'] = intval($res);
-            $atributosPR['item']=$elem->item;
-            $atributosPR['equipo']=$elem->equipo;
-            $atributosPR['serie']=$elem->serie;
-            $atributosPR['modelo']=$elem->modelo;
-            $atributosPR['fabricante']=$elem->fabricante;
-            $atributosPR['asignado']=$elem->asignado;
-            $this->Conexion->insertar('pr_atributos', $atributosPR, $funciones=null);
-        }
-        $where['idQr'] =$qrt;
-        $this->Conexion->eliminar('qr_atributos_temp', $where);
-        }
-        }
-        if ($qr->tipo == "PRODUCTO" && $qr->destino == "VENTA") {
-
-            $query = "SELECT * from qr_atributos_temp where idQr= ".$qrt;
-
-        $result = $this->Conexion->consultar($query);
-        if($result){
-        foreach( $result as $elem){
-            $atributosPR['idPr'] = intval($res);
-            $atributosPR['item']=$elem->item;
-            $atributosPR['asignado']=$elem->asignado;
-            $this->Conexion->insertar('pr_atributos', $atributosPR, $funciones=null);
-        }
-        $where['idQr'] =$qrt;
-        $this->Conexion->eliminar('qr_atributos_temp', $where);
-        }
-        }
-        
-
-        if($res > 0)
-        {
-            $datos['id'] = $res;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $this->session->nombre;
-            $datos['cantidad'] = $qty;
-            $datos['unidad'] = $qr->unidad; 
-            $datos['descripcion'] = $qr->descripcion;
-            $datos['atributos'] = $qr->atributos;
-            $datos['prioridad'] = $qr->prioridad;
-            $datos['comentarios'] = "";
-            //$datos['correos'] = array_merge(array($this->session->correo), $this->Modelo->getCorreosAprobadoresPR($this->session->id));
-            $datos['correos'] = array_merge(array($this->session->correo), $this->Modelo->getAprobadorPR($this->session->id, $qr->destino));
-            
-            $this->correos_pr->creacionPR($datos);
-            
-            echo $res;
-        }
     }
 
-    function ajax_editarPR(){
-        $id = $this->input->post('id');
-        $qty = $this->input->post('qty');
-
-        $query = "UPDATE prs set cantidad = $qty, importe=precio_unitario*cantidad, estatus='PENDIENTE' where id=$id";
-        $this->Conexion->comando($query);
-        echo "1";
-
-    }
-
-    function ajax_getPRs(){
-        $curUser = $this->session->id;
-        $misprs = $this->input->post('misprs');
-
-        $prioridad = json_decode($this->input->post('prioridad'));
-        $estatus = $this->input->post('estatus');
-        $texto = $this->input->post('texto');
-        $parametro = $this->input->post('parametro');
-        $fecha1 = $this->input->post('fecha1');
-        $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59';
-        $tipo = json_decode($this->input->post('tipo'));
-        $stock = $this->input->post('stock');
-        $archivo = $this->input->post('archivo');
-        //echo var_dump($stock);die();
-
-        $query = "SELECT PR.id, PR.fecha, PR.usuario, PR.prioridad, PR.tipo, PR.subtipo, PR.cantidad, PR.unidad, PR.clave_unidad, PR.descripcion, PR.atributos, PR.critico, PR.destino, PR.lugar_entrega, PR.comentarios, PR.estatus, concat(U.nombre, ' ', U.paterno) as User, U.autorizador_compras, U.autorizador_compras_venta, PR.stock,";
-        
-       // $query .= " ifnull((SELECT OCC.po from ordenes_compra_conceptos OCC inner join ordenes_compra OC on OCC.po = OC.id where OCC.pr = PR.id and OC.estatus != 'CANCELADA'), 0) as POActual";
-
-        $query .= " ifnull((SELECT OCC.po from ordenes_compra_conceptos OCC inner join ordenes_compra OC on OCC.po = OC.id where OCC.pr = PR.id and OC.estatus != 'CANCELADA' limit 1), 0) as POActual";
-        $query .= " from prs PR left join usuarios U on PR.usuario = U.id where 1 = 1";
-
-        if($estatus != 'TODO')
-        {
-            $query .= " and PR.estatus = '$estatus'";
-        }
-        
-
-        if(count($prioridad) > 0)
-        {
-            $query .= " and ( 1 = 0 ";
-            foreach ($prioridad as $key => $value) {
-                $query .= " or PR.prioridad = '$value'";
-            }
-            $query .= " )";
-            
-        }
-
-        if($misprs == "1")
-        {
-            //$query .= " and U.autorizador_compras = $curUser";
-            $query .= " and if(PR.destino = 'VENTA', U.autorizador_compras_venta = $curUser, U.autorizador_compras = $curUser)";
-        }
-        if($stock == "1")
-        {
-            //$query .= " and U.autorizador_compras = $curUser";
-            $query .= " and PR.stock=1";
-        }
-
-        /*
-        if($this->session->privilegios['crear_qr_interno'] != $this->session->privilegios['crear_qr_venta'])
-        {
-            if($this->session->privilegios['crear_qr_interno'] == "1")
-            {
-                $query .= " and R.destino = 'CONSUMO INTERNO'";
-            }
-            else
-            {
-                $query .= " and R.destino = 'VENTA'";
-            }
-        }
-        */
-
-        if(!empty($texto))
-        {
-            if($parametro == "folio")
-            {
-                $query .= " and PR.id = '$texto'";
-            }
-            if($parametro == "usuario")
-            {
-                $query .= " having User like '%$texto%'";
-            }
-            if($parametro == "contenido")
-            {
-                $query .= " and (PR.descripcion like '%$texto%' or UPPER(PR.atributos->'$.marca') like UPPER('%$texto%') or UPPER(PR.atributos->'$.modelo') like UPPER('%$texto%') )";
-            }
-            if($parametro == "productos")
-            {
-                $query .= " and PR.tipo like '%$texto%'";
-            }
-            if($parametro == "servicios")
-            {
-                $query .= " and PR.subtipo like '%$texto%'";
-            }
-        }
-        if(isset($tipo) && count($tipo) > 0)
-        {
-            $query .= " and ( 1 = 0 ";
-            foreach ($tipo as $key => $value) {
-                $query .= " or PR.tipo = '$value'";
-            }
-            $query .= " )";
-        }
-         if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and PR.fecha BETWEEN '".$f1."' AND '".$f2."' ";
-        }
-
-        if(true)
-        {
-
-            if ($archivo != 1) {
-                 $query .= " AND PR.fecha > '2022-01-01-00:00:00'";
-            }
-            $query .= " order by PR.fecha desc";
-        }
-        
-//echo $query;die();
-
-        $res = $this->Modelo->consulta($query);
-        
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
-         
-    }
-
-    function ajax_getMisPRs(){
-        $user = $this->session->id;
-
-        $prioridad = json_decode($this->input->post('prioridad'));
-        $estatus = $this->input->post('estatus');
-        $texto = $this->input->post('texto');
-        $parametro = $this->input->post('parametro');
-
-        $misprs = $this->input->post('misprs');
-
-        $query = "SELECT PR.id, PR.fecha, PR.usuario, concat(U.nombre, ' ', U.paterno, ' ', U.materno) as User, PR.prioridad, PR.tipo, PR.subtipo, PR.cantidad, PR.unidad, PR.clave_unidad, PR.descripcion, PR.atributos, PR.critico, PR.destino, PR.lugar_entrega, PR.comentarios, PR.estatus,";
-        $query .= " ifnull((SELECT OCC.po from ordenes_compra_conceptos OCC inner join ordenes_compra OC on OCC.po = OC.id where OCC.pr = PR.id and OC.estatus != 'CANCELADA' LIMIT 1), 0) as POActual";
-        $query .= " from prs PR inner join usuarios U on U.id = PR.usuario where 1 = 1";
-
-        if($misprs == "1") 
-        {
-            $query .= " and PR.usuario = $user";
-        }
-
-        if($estatus != 'TODO')
-        {
-            $query .= " and PR.estatus = '$estatus'";
-        }
-        
-
-        if(count($prioridad) > 0)
-        {
-            $query .= " and ( 1 = 0 ";
-            foreach ($prioridad as $key => $value) {
-                $query .= " or PR.prioridad = '$value'";
-            }
-            $query .= " )";
-            
-        }
-
-        if(!empty($texto))
-        {
-            if($parametro == "folio")
-            {
-                $query .= " and PR.id = '$texto'";
-            }
-            if($parametro == "contenido")
-            {
-                $query .= " and (PR.descripcion like '%$texto%' or UPPER(PR.atributos->'$.marca') like UPPER('%$texto%') or UPPER(PR.atributos->'$.modelo') like UPPER('%$texto%') )";
-            }
-        }
-
-        if(true)
-        {
-            $query .= " order by PR.fecha desc";
-        }
-        //echo var_dump($query);die();
-
-
-
-        $res = $this->Modelo->consulta($query);
-        //var_dump($res);die();
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else{
-            echo "";
-        }
-
-
-
-
-
-
-
-
-
-        /*$usuario = $this->session->id;
-
-        $query = "SELECT PR.id, PR.fecha, PR.usuario, PR.prioridad, PR.tipo, PR.subtipo, PR.cantidad, PR.unidad, PR.clave_unidad, PR.descripcion, PR.atributos, PR.critico, PR.destino, PR.lugar_entrega, PR.comentarios, PR.estatus, concat(U.nombre, ' ', U.paterno) as User";
-        $query .= " from prs PR left join usuarios U on PR.usuario = U.id where 1 = 1 and PR.usuario = $usuario order by PR.fecha desc";
-
-        $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else{
-            echo "";
-        }
-        */
-    }
-
-    function ajax_getPR(){
-
-        $id = $this->input->post('id');
-
-        $query = "SELECT PR.*, concat(U.nombre,' ',U.paterno) as User, U.correo from prs PR inner join usuarios U on U.id = PR.usuario where PR.id = $id";
-
-        $res = $this->Conexion->consultar($query, TRUE);
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else
-        {
-            echo "";
-        }
-    }
-
-    function ajax_getProveedorPR() {
-        $id = $this->input->post('id');
-        $query = "SELECT E.id, QP.id as idQP, P.entrega, E.nombre, QP.monto, QP.total, QP.moneda, QP.tiempo_entrega, QP.dias_habiles, QP.comentarios, QP.nominado, QP.seleccionado, QP.nombre_archivo, QP.vencimiento from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id where QP.id = '".$id."'";
-        //echo var_dump($query);die();
-        $res = $this->Modelo->consulta($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
-    }
-
-    function ajax_setEstatusPR(){
-        $this->load->model('compras_model');
-        $estatus = $this->input->post('estatus');
-        $id = $this->input->post('id');
-
-        //$q = "SELECT bitacora_estatus from prs where id =".$id;
-        //echo var_dump($query);die();
-        //$bin=json_encode($this->Modelo->consulta($q));
-        //echo json_encode($bin);die();
-
-
-        $bitacora=[$estatus, date("Y-m-d h:i:sa"),$this->session->id];
-        $estatusBit=json_encode([$bitacora]);
-
-        $aprobador = $this->session->id;
-        /*$data['estatus']=$estatus;
-         $res =$this->compras_model->estatusPR($id, $data);*/
-        $query = "update prs set estatus='" . $estatus . "' where id='" . $id . "'";
-        $data['pr']=$id;
-            $data['user']=$this->session->id;
-            $data['estatus']=$estatus;
-            //$this->compras_model->estatusPR($data);
-
-        if($estatus == "APROBADO")
-        {
-            $query = "update prs set estatus='" . $estatus . "', fecha_aprobacion = CURRENT_TIMESTAMP(), aprobador = $aprobador where id='" . $id . "'";
-          //  $data['estatus']=$estatus;
-            $data['pr']=$id;
-            $data['user']=$this->session->id;
-            $data['estatus']=$estatus;
-            $this->compras_model->estatusPR($data);
-
-        }
-        if($estatus == "CERRADO")
-        {
-            $query = "update prs set estatus='" . $estatus . "', entregado = CURRENT_TIMESTAMP() where id='" . $id . "'";
-            if($this->Modelo->update($query))
-            {
-                echo "1";
-            }
-            exit();
-            //$data['estatus']=$estatus;
-            $data['bitacora_estatus']=$estatusBit;
-             $this->compras_model->estatusPR($id, $data);
-        }
-
-
-        $res = $this->Modelo->update($query);
-        if($res){
-
-            //$qr = $this->Modelo->getDetalleQR($idqr);
-            $pr = $this->Modelo->getPR($id);
-
-            $datos['id'] = $id;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $pr->User;
-            $datos['prioridad'] = $pr->prioridad;
-            $datos['unidad'] = $pr->unidad;
-            $datos['cantidad'] = $pr->cantidad;
-            $datos['descripcion'] = $pr->descripcion;
-            $datos['atributos'] = $pr->atributos;
-            $datos['comentarios'] = $pr->comentarios;
-
-            $datos['estatus'] = $estatus;
-
-            if($estatus == "APROBADO")
-            {
-                $datos['correos'] = array_merge(array($qr->correo), $this->Modelo->getCorreosQR());
-                $this->correos_pr->liberarPR($datos);
-            }
+    // Si fue cerrado, agrega fecha de entrega
+    if ($estatus == "CERRADO") {
+        $query = "UPDATE prs SET estatus = '$estatus', entregado = CURRENT_TIMESTAMP() WHERE id = '$id'";
+        if ($this->Modelo->update($query)) {
             echo "1";
         }
-        else{
-            echo "";
-        }
+        exit();
     }
 
-    function agregarComentarioPR() {
-        //echo var_dump($this->session->nombre);die();
-        $id = $this->input->post('id');
-        $comentario = $this->input->post('comentario');
-        $tags = $this->input->post('txtTags');
-        $correos = explode(",", $tags);
-        
-        $query = "SELECT u.correo as correoReq, ua.correo as correoA  FROM `prs` pr JOIN usuarios u on u.id=pr.usuario join requisiciones_cotizacion qr on qr.id=pr.qr join usuarios ua on qr.asignado = ua.id WHERE pr.id = ".$id;
-        $res = $this->Modelo->consulta($query, TRUE);
-        $mails= $res->correoReq.','.$res->correoA;
-        $mails= explode(',', $mails);
-        $data['id'] = $id;
-        $data['comentario'] = $comentario;
-        $data['correos'] = $mails;
-        $data['nombre']=$this->session->nombre;
-        //$this->correos->comentarioQR($data); 
-        $this->correos_pr->comentarioPR($data);
-        
+    // Ejecuta la actualización de estatus
+    $res = $this->Modelo->update($query);
 
-        $data = array(
+    if ($res) {
+        $pr = $this->Modelo->getPR($id);
+
+        $datos['id'] = $id;
+        $datos['fecha'] = date('d/m/Y h:i A');
+        $datos['usuario'] = $pr->User;
+        $datos['prioridad'] = $pr->prioridad;
+        $datos['unidad'] = $pr->unidad;
+        $datos['cantidad'] = $pr->cantidad;
+        $datos['descripcion'] = $pr->descripcion;
+        $datos['atributos'] = $pr->atributos;
+        $datos['comentarios'] = $pr->comentarios;
+        $datos['estatus'] = $estatus;
+
+        // Si fue aprobado, notifica por correo
+        if ($estatus == "APROBADO") {
+            $datos['correos'] = array_merge([$qr->correo], $this->Modelo->getCorreosQR());
+            $this->correos_pr->liberarPR($datos);
+        }
+
+        echo "1";
+    } else {
+        echo "";
+    }
+}
+
+// Agrega comentario a una PR y notifica a los correos relacionados
+function agregarComentarioPR() {
+    $id = $this->input->post('id');
+    $comentario = $this->input->post('comentario');
+    $tags = $this->input->post('txtTags');
+    $correos = explode(",", $tags);
+
+    // Correos del solicitante y del asignado a la QR relacionada
+    $query = "SELECT u.correo AS correoReq, ua.correo AS correoA  
+              FROM prs pr 
+              JOIN usuarios u ON u.id = pr.usuario 
+              JOIN requisiciones_cotizacion qr ON qr.id = pr.qr 
+              JOIN usuarios ua ON qr.asignado = ua.id 
+              WHERE pr.id = $id";
+    $res = $this->Modelo->consulta($query, TRUE);
+
+    $mails = explode(',', $res->correoReq . ',' . $res->correoA);
+
+    // Datos para enviar notificación de comentario
+    $data['id'] = $id;
+    $data['comentario'] = $comentario;
+    $data['correos'] = $mails;
+    $data['nombre'] = $this->session->nombre;
+
+    $this->correos_pr->comentarioPR($data);
+
+    // Guarda el comentario en la base de datos
+    $insert = [
+        'pr' => $id,
+        'usuario' => $this->session->id,
+        'comentario' => $comentario
+    ];
+    $this->Modelo->agregar_comentarioPR($insert);
+
+    // Envía comentario a correos marcados con etiquetas (si hay)
+    if (count($correos) > 0) {
+        $datos['id'] = $id;
+        $datos['comentario'] = $comentario;
+        $datos['correos'] = $correos;
+        $this->correos_pr->comentarioPR($datos);
+    }
+
+    redirect(base_url('compras/ver_pr/' . $id));
+}
+
+   // Cambia estatus de PR con comentario incluido y notificación por correo
+function ajax_setEstatusMsjPR() {
+    $this->load->model('compras_model');
+
+    $id = $this->input->post('id');
+    $estatus = $this->input->post('estatus');
+    $comentario_original = $this->input->post('comentario');
+    $comentario = "<b><font color='red'>$estatus:</font></b> " . $comentario_original;
+    $tags = $this->input->post('txtTags');
+    $correos = explode(",", $tags);
+
+    // Actualiza estatus en base de datos
+    $query = "UPDATE prs SET estatus = '$estatus' WHERE id = '$id'";
+    $data['pr'] = $id;
+    $data['user'] = $this->session->id;
+    $data['estatus'] = $estatus;
+    $this->compras_model->estatusPR($data);
+
+    $res = $this->Modelo->update($query);
+    if ($res) {
+        // Registra comentario con el estatus como prefijo
+        $data = [
             'pr' => $id,
             'usuario' => $this->session->id,
             'comentario' => $comentario,
-        );
-
+        ];
         $this->Modelo->agregar_comentarioPR($data);
 
-        if(count($correos) > 0)
-        {
-            $datos['id'] = $id;
-            $datos['comentario'] = $comentario;
-            $datos['correos'] = $correos;
-            $this->correos_pr->comentarioPR($datos);
+        $pr = $this->Modelo->getPR($id);
+
+        $datos['id'] = $id;
+        $datos['fecha'] = date('d/m/Y h:i A');
+        $datos['usuario'] = $pr->User;
+        $datos['prioridad'] = $pr->prioridad;
+        $datos['unidad'] = $pr->unidad;
+        $datos['cantidad'] = $pr->cantidad;
+        $datos['descripcion'] = $pr->descripcion;
+        $datos['atributos'] = $pr->atributos;
+        $datos['comentarios'] = $pr->comentarios;
+        $datos['estatus'] = $estatus;
+
+        // Enviar correo solo si fue rechazado
+        if ($estatus == "RECHAZADO") {
+            $datos['correos'] = [$pr->correo];
+            $this->correos_pr->rechazoPR($datos);
         }
 
-       redirect(base_url('compras/ver_pr/' . $id));
+        // Correos personalizados vía etiquetas
+        if (count($correos) > 0) {
+            $datos2['id'] = $id;
+            $datos2['comentario'] = $comentario;
+            $datos2['correos'] = $correos;
+            $this->correos_pr->comentarioPR($datos2);
+        }
+
+        echo $comentario;
+    } else {
+        echo "";
+    }
+}
+
+// Retorna lista de usuarios con permiso para aprobar PRs
+function ajax_getLiberadoresCompra() {
+    $query = "SELECT U.id, CONCAT(U.nombre, ' ', U.paterno, ' ', U.materno) AS Name 
+              FROM usuarios U 
+              INNER JOIN privilegios P ON P.usuario = U.id 
+              WHERE U.activo = 1 AND P.aprobar_pr = 1";
+
+    $res = $this->Conexion->consultar($query);
+    if ($res) {
+        echo json_encode($res);
+    }
+}
+
+// Retorna lista de usuarios con permiso para aprobar cotizaciones
+function ajax_getLiberadoresCotizacion() {
+    $query = "SELECT U.id, CONCAT(U.nombre, ' ', U.paterno, ' ', U.materno) AS Name 
+              FROM usuarios U 
+              INNER JOIN privilegios P ON P.usuario = U.id 
+              WHERE U.activo = 1 AND P.aprobar_cotizacion = 1";
+
+    $res = $this->Conexion->consultar($query);
+    if ($res) {
+        echo json_encode($res);
+    }
+}
+    function exportarQR() {
+    // Recolección de filtros desde POST
+    $parametro = $this->input->post('rbBusqueda');
+    $texto = $this->input->post('txtBusqueda');
+    $estatus = $this->input->post('opEstatus');
+    $usuario = $this->input->post('cbMisQrs');
+    $cbNormal = $this->input->post('cbNormal');
+    $cbUrgente = $this->input->post('cbUrgente');
+    $cbInfoUrgente = $this->input->post('cbInfoUrgente');
+    $cbProducto = $this->input->post('cbProducto');
+    $cbServicio = $this->input->post('cbServicio');
+    $asignado = $this->input->post('opAsignado');
+    $archivo = $this->input->post('cbArchivo');
+    $fecha1 = $this->input->post('fecha1');
+    $fecha2 = $this->input->post('fecha2');
+    $f1 = $fecha1 . ' 00:00:00';
+    $f2 = $fecha2 . ' 23:59:59';
+
+    // Consulta base
+    $query = "SELECT R.id, R.fecha, R.usuario, R.prioridad, R.tipo, R.subtipo, R.cantidad, R.cantidad_aprobada, R.unidad, R.clave_unidad, R.descripcion, R.atributos, R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, CONCAT(U.nombre, ' ', U.paterno) as User, R.fecha_liberacion
+              FROM requisiciones_cotizacion R
+              LEFT JOIN usuarios U ON R.usuario = U.id
+              WHERE 1 = 1";
+
+    // Filtros aplicados
+    if ($estatus != 'TODO') {
+        $query .= " AND R.estatus = '$estatus'";
+    }
+    if (!empty($asignado)) {
+        $query .= " AND R.asignado = '$asignado'";
+    }
+    if ($usuario == 'NORMAL') {
+        $idUser = $this->session->id;
+        $query .= " AND R.usuario = '$idUser'";
     }
 
-    function ajax_setEstatusMsjPR(){
-        $this->load->model('compras_model');
+    // Prioridades
+    $query .= " AND (1 = 0";
+    if (!empty($cbNormal)) $query .= " OR R.prioridad = '$cbNormal'";
+    if (!empty($cbUrgente)) $query .= " OR R.prioridad = '$cbUrgente'";
+    if (!empty($cbInfoUrgente)) $query .= " OR R.prioridad = '$cbInfoUrgente'";
+    $query .= ")";
 
-        $id = $this->input->post('id');
-        $estatus = $this->input->post('estatus');
-        $comentario_original = $this->input->post('comentario');
-        $comentario = "<b><font color='red'>$estatus:</font></b> " . $comentario_original;
-        $tags = $this->input->post('txtTags');
-        $correos = explode(",", $tags);
+    // Tipo de producto o servicio
+    $query .= " AND (1 = 0";
+    if (!empty($cbProducto)) $query .= " OR R.tipo = '$cbProducto'";
+    if (!empty($cbServicio)) $query .= " OR R.tipo = '$cbServicio'";
+    $query .= ")";
 
-
-
-        $query = "UPDATE prs set estatus='" . $estatus . "' where id='" . $id . "'";
-        
-        $data['pr']=$id;
-        $data['user']=$this->session->id;
-        $data['estatus']=$estatus;
-        $this->compras_model->estatusPR($data);
-        
-
-
-        $res = $this->Modelo->update($query);
-        if($res){
-
-            $data = array(
-                'pr' => $id,
-                'usuario' => $this->session->id,
-                'comentario' => $comentario,
-            );
-            $this->Modelo->agregar_comentarioPR($data);
-            
-            $pr = $this->Modelo->getPR($id);
-
-            $datos['id'] = $id;
-            $datos['fecha'] = date('d/m/Y h:i A');
-            $datos['usuario'] = $pr->User;
-            $datos['prioridad'] = $pr->prioridad;
-            $datos['unidad'] = $pr->unidad;
-            $datos['cantidad'] = $pr->cantidad;
-            $datos['descripcion'] = $pr->descripcion;
-            $datos['atributos'] = $pr->atributos;
-            $datos['comentarios'] = $pr->comentarios;
-
-            $datos['estatus'] = $estatus;
-
-            if($estatus == "RECHAZADO")
-            {
-                $datos['correos'] = array($pr->correo);
-                $this->correos_pr->rechazoPR($datos);
+    // Filtro por privilegios internos o de venta
+    if ($this->session->privilegios['crear_qr_interno'] != $this->session->privilegios['crear_qr_venta']) {
+        if ($this->session->privilegios['editar_qr'] == "0" && $this->session->privilegios['liberar_qr'] == "0") {
+            if ($this->session->privilegios['crear_qr_interno'] == "1") {
+                $query .= " AND R.destino = 'CONSUMO INTERNO'";
+            } else {
+                $query .= " AND R.destino = 'VENTA'";
             }
-
-            if(count($correos) > 0)
-            {
-                $datos2['id'] = $id;
-                $datos2['comentario'] = $comentario;
-                $datos2['correos'] = $correos;
-                $this->correos_pr->comentarioPR($datos2);
-            }
-
-
-            echo $comentario;
-        }
-        else{
-            echo "";
         }
     }
 
-    function ajax_getLiberadoresCompra(){
-        $query = "SELECT U.id, concat(U.nombre,' ',U.paterno,' ',U.materno) as Name from usuarios U inner join privilegios P on P.usuario = U.id where U.activo = 1 and P.aprobar_pr = 1";
-        
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
+    // Búsqueda por texto
+    if (!empty($texto)) {
+        if ($parametro == "folio") {
+            $query .= " AND R.id = '$texto'";
         }
-
+        if ($parametro == "usuario") {
+            $query .= " AND CONCAT(U.nombre, ' ', U.paterno) LIKE '%$texto%'";
+        }
+        if ($parametro == "contenido") {
+            $query .= " AND (R.descripcion LIKE '%$texto%' 
+                            OR UPPER(R.atributos->'$.marca') LIKE UPPER('%$texto%') 
+                            OR UPPER(R.atributos->'$.modelo') LIKE UPPER('%$texto%'))";
+        }
     }
 
-    function ajax_getLiberadoresCotizacion(){
-        $query = "SELECT U.id, concat(U.nombre,' ',U.paterno,' ',U.materno) as Name from usuarios U inner join privilegios P on P.usuario = U.id where U.activo = 1 and P.aprobar_cotizacion = 1";
-        
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-
+    // Rango de fechas
+    if (!empty($fecha1) && !empty($fecha2)) {
+        $query .= " AND R.fecha BETWEEN '$f1' AND '$f2'";
     }
 
-    function exportarQR()
-    {
-        $parametro=$this->input->post('rbBusqueda');
-        $texto=$this->input->post('txtBusqueda');
-        $estatus=$this->input->post('opEstatus');
-        $usuario = $this->input->post('cbMisQrs');
-        $cbNormal= $this->input->post('cbNormal');
-        $cbUrgente= $this->input->post('cbUrgente');
-        $cbInfoUrgente = $this->input->post('cbInfoUrgente');
-        $cbProducto= $this->input->post('cbProducto');
-        $cbServicio= $this->input->post('cbServicio');
-        $asignado=$this->input->post('opAsignado');
-        $archivo=$this->input->post('cbArchivo');
-        $fecha1 = $this->input->post('fecha1');
-        $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59' ;
+    // Solo QRs del último año
+    $query .= " AND R.maximo_vencimiento > (CURRENT_DATE() - INTERVAL 1 YEAR)";
 
-        $query = "SELECT R.id, R.fecha, R.usuario, R.prioridad, R.tipo, R.subtipo, R.cantidad, R.cantidad_aprobada, R.unidad, R.clave_unidad, R.descripcion, R.atributos, R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, concat(U.nombre, ' ', U.paterno) as User, R.fecha_liberacion";
-        $query .= " from requisiciones_cotizacion R left join usuarios U on R.usuario = U.id where 1 = 1";
+    // Filtrar si no es exportación completa
+    if ($archivo != "1") {
+        $query .= " AND R.fecha > '2021-01-01 00:00:00'";
+    }
 
-        if($estatus != 'TODO')
-        {
-            $query .= " and R.estatus = '$estatus'";
-        }
-        if(!empty($asignado))
-        {
-            $query .= " and R.asignado = '$asignado'";
-        }
-        if($usuario == 'NORMAL')
-        {
-            $idUser = $this->session->id;
-            $query .= " and R.usuario = '$idUser'";
-        }
-        $query .= " and ( 1 = 0 ";
-        if (!empty($cbNormal)) {
-            
-            $query .= " or R.prioridad = '$cbNormal'";
-            
-            
-        }
-        if(!empty($cbUrgente)) {
-            
-            $query .= " or R.prioridad = '$cbUrgente'";
-            
-            
-        }
-        if(!empty($cbInfoUrgente)) {
-            
-            $query .= " or R.prioridad = '$cbInfoUrgente'";
-            
-            
-        }
-        $query .= " )";
-        $query .= " and ( 1 = 0 ";
-        if (!empty($cbProducto)) {
-            
-            $query .= " or R.tipo = '$cbProducto'";
-            
-            
-        }
-        if(!empty($cbServicio)) {
-            
-           $query .= " or R.tipo = '$cbServicio'";
-            
-            
-        }
-        $query .= " )";
-        if( $this->session->privilegios['crear_qr_interno'] != $this->session->privilegios['crear_qr_venta'] )
-        {
-            if($this->session->privilegios['editar_qr'] == "0" && $this->session->privilegios['liberar_qr'] == "0")
-            {
-                if($this->session->privilegios['crear_qr_interno'] == "1")
-                {
-                    $query .= " and R.destino = 'CONSUMO INTERNO'";
-                }
-                else
-                {
-                    $query .= " and R.destino = 'VENTA'";
-                }
-            }
-        }
-        if(!empty($texto))
-        {
-            if($parametro == "folio")
-            {
-                $query .= " and R.id = '$texto'";
-            }
-            if($parametro == "usuario")
-            {
-                //$query .= " having User like '%$texto%'";
-                $query .= " and concat(U.nombre, ' ', U.paterno) like '%$texto%'";
-            }
-            if($parametro == "contenido")
-            {
-                $query .= " and (R.descripcion like '%$texto%' or UPPER(R.atributos->'$.marca') like UPPER('%$texto%') or UPPER(R.atributos->'$.modelo') like UPPER('%$texto%') )";
-            }
-        }
-        if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and R.fecha BETWEEN '".$f1."' AND '".$f2."' ";
-        }
-        $query .= " and R.maximo_vencimiento > (CURRENT_DATE() - INTERVAL 1 YEAR)";
+    $query .= " ORDER BY R.fecha DESC";
 
-        if ($archivo !="1") {
-            $query .= " and R.fecha > '2021-01-01 00:00:00' ";
+    $result = $this->Conexion->consultar($query);
+
+    // Construcción de tabla para exportar
+    $salida = '<table style="border: 1px solid black; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">QR</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Fecha</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Requisitor</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Prioridad</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Tipo</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Subtipo</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Cantidad</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Estatus</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Fecha Liberado</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Días Transcurridos</th>
+                <th style="background-color: #F3F1F1; border: 1px solid black;">Descripción</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+    $d = 2;
+    foreach ($result as $row) {
+        $salida .= '<tr>
+            <td style="border: 1px solid black;">' . $row->id . '</td>
+            <td style="border: 1px solid black;">' . $row->fecha . '</td>
+            <td style="border: 1px solid black;">' . $row->User . '</td>
+            <td style="border: 1px solid black;">' . $row->prioridad . '</td>
+            <td style="border: 1px solid black;">' . $row->tipo . '</td>
+            <td style="border: 1px solid black;">' . $row->subtipo . '</td>
+            <td style="border: 1px solid black;">' . $row->cantidad . '</td>
+            <td style="border: 1px solid black;">' . $row->estatus . '</td>
+            <td style="border: 1px solid black;">' . $row->fecha_liberacion . '</td>
+            <td style="border: 1px solid black;">=SI(ESBLANCO($I' . $d . '),"",DIAS($I' . $d . ',$B' . $d . '))</td>
+            <td style="border: 1px solid black;">' . $row->descripcion . '</td>
+        </tr>';
+        $d++;
+    }
+
+    $salida .= '</tbody></table>';
+
+    // Preparar headers para descarga como archivo Excel
+    $timestamp = date('m-d-Y');
+    $filename = 'QR_' . $timestamp . '.xls';
+    header("Content-Type: application/vnd.ms-excel");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    header("Content-Transfer-Encoding: binary");
+
+    echo $salida;
+}
+
+   function exportarPR()
+{
+    // Entrada de parámetros desde POST
+    $opc = $this->input->post('rbBusqueda');
+    $texto = $this->input->post('txtBusqueda');
+    $estatus = $this->input->post('opEstatus');
+    $fecha1 = $this->input->post('fecha1');
+    $fecha2 = $this->input->post('fecha2');
+    $f1 = strval($fecha1) . ' 00:00:00';
+    $f2 = strval($fecha2) . ' 23:59:59';
+    $stock = $this->input->post('stock');
+    $archivo = $this->input->post('cbArchivo');
+
+    // Consulta base
+    $query = "SELECT 
+                PR.id as PR,
+                PR.fecha as Fecha,
+                concat(U.nombre, ' ', U.paterno) as Requisitor,
+                PR.prioridad as Prioridad,
+                PR.tipo as Tipo,
+                PR.subtipo as Subtipo,
+                PR.cantidad as Cantidad,
+                PR.estatus as Estatus,
+                ifnull((
+                    SELECT OCC.po 
+                    FROM ordenes_compra_conceptos OCC 
+                    INNER JOIN ordenes_compra OC ON OCC.po = OC.id 
+                    WHERE OCC.pr = PR.id AND OC.estatus != 'CANCELADA' 
+                    LIMIT 1
+                ), 0) as PO,
+                concat('$ ', format(PR.importe, 2)) as MONTO,
+                PR.moneda as Moneda,
+                (
+                    SELECT P.entrega 
+                    FROM qr_proveedores QP 
+                    INNER JOIN empresas E ON E.id = QP.empresa 
+                    INNER JOIN proveedores P ON P.empresa = E.id 
+                    WHERE QP.id = PR.qr_proveedor
+                ) as Lugar,
+                (
+                    SELECT E.nombre 
+                    FROM qr_proveedores QP 
+                    INNER JOIN empresas E ON E.id = QP.empresa 
+                    INNER JOIN proveedores P ON P.empresa = E.id 
+                    WHERE QP.id = PR.qr_proveedor
+                ) as Proveedor,
+                PR.descripcion as Descripcion
+            FROM prs PR 
+            LEFT JOIN usuarios U ON PR.usuario = U.id 
+            WHERE 1 = 1";
+
+    // Filtros dinámicos
+    if ($estatus != 'TODO') {
+        $query .= " AND PR.estatus = '$estatus'";
+    }
+
+    if (!empty($texto)) {
+        if ($opc == "folio") {
+            $query .= " AND PR.id = '$texto'";
         }
-        $query .= " order by R.fecha desc";
-        //echo $query;die();
-        $result= $this->Conexion->consultar($query);
+        if ($opc == "usuario") {
+            $query .= " HAVING Requisitor LIKE '%$texto%'";
+        }
+        if ($opc == "contenido") {
+            $query .= " AND (PR.descripcion LIKE '%$texto%' 
+                        OR UPPER(PR.atributos->'$.marca') LIKE UPPER('%$texto%') 
+                        OR UPPER(PR.atributos->'$.modelo') LIKE UPPER('%$texto%'))";
+        }
+    }
 
-        $salida='';
+    if (!empty($fecha1) && !empty($fecha2)) {
+        $query .= " AND PR.fecha BETWEEN '$fecha1' AND '$fecha2'";
+    }
 
-            $salida .= '<table style="border: 1px solid black; border-collapse: collapse;">
-                            <thead> 
-                                <tr>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">QR</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Fecha</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Requisitor</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Prioridad</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Tipo</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Subtipo</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Cantidad</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Estatus</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Fecha Liberado</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Dias Transcurridos</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Descripcion</th>
-                                </tr>
-                            </thead>
-                            <tbody>';
-                            $d=2;
-        foreach($result as $row){
-            $salida .='
+    if (!empty($stock)) {
+        $query .= " AND PR.stock = 1";
+    }
+
+    if ($archivo != "1") {
+        $query .= " AND PR.fecha > '2021-01-01 00:00:00'";
+    }
+
+    $query .= " ORDER BY PR.fecha DESC";
+
+    // Ejecutar consulta
+    $result = $this->Conexion->consultar($query);
+
+    // Construcción de tabla HTML para exportar a Excel
+    $salida = '';
+    $salida .= '<table style="border: 1px solid black; border-collapse: collapse;">
+                    <thead> 
                         <tr>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->id.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->User.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->prioridad.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->tipo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->subtipo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->cantidad.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->estatus.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->fecha_liberacion.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">=SI(ESBLANCO($I'.$d.'),"",DIAS($I'.$d.',$B'.$d.'))</td>
-                            <td style="color: $444; border: 1px solid black; border-collapse: collapse">'.$row->descripcion.'</td>
-                        </tr>';
-                        $d=$d+1;
-             }
-                $salida .= '</tbody>
-                </table>';
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">PR</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Fecha</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Requisitor</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Prioridad</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Tipo</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Subtipo</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Cantidad</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Estatus</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">PO</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Monto</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Moneda</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Lugar de entrega</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Proveedor</th>
+                            <th style="background-color: #F3F1F1; border: 1px solid black;">Descripcion</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
 
-        $timestamp = date('m/d/Y', time());
-       
-        $filename='QR_'.$timestamp.'.xls';
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment; filename=\"$filename\"");
-        header("Pragma: no-cache");
-        header("Expires: 0");
-        header('Content-Transfer-Encoding: binary'); 
-        echo $salida;
-               
-    }  
-    function exportarPR()
-    {
-        $opc=$this->input->post('rbBusqueda');
-        $texto=$this->input->post('txtBusqueda');
-        $estatus=$this->input->post('opEstatus');
-        $fecha1 = $this->input->post('fecha1');
-        $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59' ;
-        $stock=$this->input->post('stock');
-        $archivo=$this->input->post('cbArchivo');
-        //echo $stock;die();
-        $query="SELECT PR.id as PR, PR.fecha as Fecha,concat(U.nombre, ' ', U.paterno) as Requisitor, PR.prioridad as Prioridad, PR.tipo as Tipo, PR.subtipo as Subtipo, PR.cantidad as Cantidad, PR.estatus as Estatus, ifnull((SELECT OCC.po from ordenes_compra_conceptos OCC inner join ordenes_compra OC on OCC.po = OC.id where OCC.pr = PR.id and OC.estatus != 'CANCELADA' limit 1), 0) as PO, concat('$ ',format(PR.importe,2)) as MONTO, PR.moneda as Moneda, (SELECT P.entrega from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id where QP.id =PR.qr_proveedor) as Lugar,(SELECT E.nombre from qr_proveedores QP inner join empresas E on E.id = QP.empresa inner join proveedores P on P.empresa = E.id where QP.id =PR.qr_proveedor) as Proveedor,PR.descripcion as Descripcion from prs PR left join usuarios U on PR.usuario = U.id where 1 = 1";
-        if($estatus != 'TODO'){
-            $query .=" and PR.estatus = '$estatus'";
+    foreach ($result as $row) {
+        $salida .= '
+            <tr>
+                <td style="border: 1px solid black;">' . $row->PR . '</td>
+                <td style="border: 1px solid black;">' . $row->Fecha . '</td>
+                <td style="border: 1px solid black;">' . $row->Requisitor . '</td>
+                <td style="border: 1px solid black;">' . $row->Prioridad . '</td>
+                <td style="border: 1px solid black;">' . $row->Tipo . '</td>
+                <td style="border: 1px solid black;">' . $row->Subtipo . '</td>
+                <td style="border: 1px solid black;">' . $row->Cantidad . '</td>
+                <td style="border: 1px solid black;">' . $row->Estatus . '</td>
+                <td style="border: 1px solid black;">' . $row->PO . '</td>
+                <td style="border: 1px solid black;">' . $row->MONTO . '</td>
+                <td style="border: 1px solid black;">' . $row->Moneda . '</td>
+                <td style="border: 1px solid black;">' . $row->Lugar . '</td>
+                <td style="border: 1px solid black;">' . $row->Proveedor . '</td>
+                <td style="border: 1px solid black;">' . $row->Descripcion . '</td>
+            </tr>';
+    }
 
-        }
-        if(!empty($texto))
-        {
-            if($opc == "folio")
-            {
-                $query .= " and PR.id = '$texto'";
-            }
-            if($opc == "usuario")
-            {
-                $query .= " having Requisitor  like '%$texto%'";
-            }
-            if($opc == "contenido")
-            {
-                $query .= " and (PR.descripcion like '%$texto%' or UPPER(PR.atributos->'$.marca') like UPPER('%$texto%') or UPPER(PR.atributos->'$.modelo') like UPPER('%$texto%') )";
-            }
-        }
-        if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and PR.fecha BETWEEN '".$fecha1."' AND '".$fecha2."' ";
-        }
-         if(!empty($stock))
-        {
-            $query .= " and PR.stock=1";
-        }
+    $salida .= '</tbody></table>';
 
-        if ($archivo !="1") {
-            $query .= " and PR.fecha > '2021-01-01 00:00:00' ";
-        }
-        $query .=" order by PR.fecha desc";
+    // Preparar headers para descargar el archivo como Excel
+    $timestamp = date('m/d/Y', time());
+    $filename = 'PR_' . $timestamp . '.xls';
 
+    header("Content-Type: application/vnd.ms-excel");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    header("Pragma: no-cache");
+    header("Expires: 0");
+    header('Content-Transfer-Encoding: binary');
 
-       //echo $query;die();
+    echo $salida;
+}
 
-        
-        $result= $this->Conexion->consultar($query);
-
-
-        $salida='';
-
-            $salida .= '<table style="border: 1px solid black; border-collapse: collapse;">
-                            <thead> 
-                                <tr>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">PR</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Fecha</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Requisitor</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Prioridad</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Tipo</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Subtipo</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Cantidad</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Estatus</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">PO</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Monto</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Moneda</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Lugar de entrega</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Proveedor</th>
-                                    <th style="background-color: #F3F1F1; color: black;  border: 1px solid black; border-collapse: collapse">Descripcion</th>
-                                </tr>
-                            </thead>
-                            <tbody>';
-        foreach($result as $row){
-            
-
-            $salida .='
-                        <tr>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->PR.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Fecha.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Requisitor.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Prioridad.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Tipo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Subtipo.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Cantidad.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Estatus.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->PO.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->MONTO.'</td>
-                            <td style="color: $444;  border: 1px solid black; border-collapse: collapse">'.$row->Moneda.'</td>
-                            <td style="color: $444; border: 1px solid black; border-collapse: collapse">'.$row->Lugar.'</td>
-                            <td style="color: $444; border: 1px solid black; border-collapse: collapse">'.$row->Proveedor.'</td>
-                            <td style="color: $444; border: 1px solid black; border-collapse: collapse">'.$row->Descripcion.'</td>
-                        </tr>';
-             }
-
-                $salida .= '</tbody>
-                </table>';
-
-        $timestamp = date('m/d/Y', time());
-       
-        $filename='PR_'.$timestamp.'.xls';
-        header("Content-Type: application/vnd.ms-excel");
-        header("Content-Disposition: attachment; filename=\"$filename\"");
-        header("Pragma: no-cache");
-        header("Expires: 0");
-        header('Content-Transfer-Encoding: binary'); 
-        echo $salida;
-        
-    } 
     function AllPR(){
-        $id = $this->input->post('CURRENT_PR');
-        
-       
-        $query="SELECT * from prs where id =".$id;
+    // Obtiene el ID de la PR desde POST
+    $id = $this->input->post('CURRENT_PR');
 
-       
+    // Consulta toda la información de la PR específica
+    $query = "SELECT * from prs where id = ".$id;
 
+    // Ejecuta la consulta
+    $res = $this->Conexion->consultar($query, $id);
 
-        $res = $this->Conexion->consultar($query, $id);
-
-        if($res)
-        {
-            echo json_encode($res);
-             
-        }
-
+    // Si hay resultado, lo devuelve como JSON
+    if($res) {
+        echo json_encode($res);
     }
+}
 
+function ajax_getNombresUsuarios(){
+    // Obtiene el ID de la PR desde POST
+    $ids = $this->input->post('CURRENT_PR');
 
+    // Consulta la bitácora de estatus para esa PR y quién los realizó
+    $query = "SELECT concat(u.nombre, ' ', u.paterno) as user, b.fecha, b.estatus 
+              from bitacora_prs b 
+              JOIN usuarios u on b.user = u.id 
+              where pr = ".$ids;
 
-
-    function ajax_getNombresUsuarios(){
-        $ids = $this->input->post('CURRENT_PR');
-        
-
-        $query = "SELECT concat(u.nombre, ' ', u.paterno) as user, b.fecha, b.estatus from bitacora_prs b JOIN usuarios u on b.user=u.id where pr=". $ids;
-        //echo var_dump($query);die();
-
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Ejecuta la consulta y devuelve JSON si hay resultados
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
     }
+}
+
 function bitacoraQR(){
-        $ids = $this->input->post('id');
-        
+    // Obtiene el ID del QR desde POST
+    $ids = $this->input->post('id');
 
-        $query = "SELECT concat(u.nombre, ' ', u.paterno) as user, b.fecha, b.estatus from bitacora_qrs b JOIN usuarios u on b.user=u.id where qr=". $ids;
-        //echo var_dump($query);die();
+    // Consulta la bitácora de estatus para ese QR y quién los realizó
+    $query = "SELECT concat(u.nombre, ' ', u.paterno) as user, b.fecha, b.estatus 
+              from bitacora_qrs b 
+              JOIN usuarios u on b.user = u.id 
+              where qr = ".$ids;
 
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Ejecuta la consulta y devuelve JSON si hay resultados
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
     }
+}
 
-    public function ajax_surtirPR()
-    {
-        $pr=$this->input->post('id');
-        //echo $pr;die();
-        date_default_timezone_set('America/Chihuahua');
-        $date=date('Y-m-d h:i:s');
+public function ajax_surtirPR()
+{
+    // Obtiene el ID de la PR desde POST
+    $pr = $this->input->post('id');
 
-        $data['estatus'] = "POR RECIBIR";
-        $data['stock'] = 1;
-        $data['surtidorStock'] = $this->session->id;
-        $data['fechaSurtido'] = $date;
-        $where['id'] = intval($pr);
-	$res=  $this->Conexion->modificar('prs', $data, null, $where);
+    // Establece zona horaria y obtiene fecha/hora actual
+    date_default_timezone_set('America/Chihuahua');
+    $date = date('Y-m-d h:i:s');
 
-        $bitacoraPR['pr']=intval($pr);
-        $bitacoraPR['user']=$this->session->id;
-        $bitacoraPR['estatus']='SURTIDO DE STOCK';
-        $this->Modelo->estatusPR($bitacoraPR);
-         $bitacoraPR['pr']=intval($pr);
-        $bitacoraPR['user']=$this->session->id;
-        $bitacoraPR['estatus']='POR RECIBIR';
-        $this->Modelo->estatusPR($bitacoraPR);
-if ($res) {
-            echo 1;
-        }
+    // Prepara los datos para actualizar la PR
+    $data['estatus'] = "POR RECIBIR";
+    $data['stock'] = 1;
+    $data['surtidorStock'] = $this->session->id;
+    $data['fechaSurtido'] = $date;
+
+    $where['id'] = intval($pr);
+
+    // Ejecuta la actualización en la tabla `prs`
+    $res = $this->Conexion->modificar('prs', $data, null, $where);
+
+    // Registra en bitácora el evento "SURTIDO DE STOCK"
+    $bitacoraPR['pr'] = intval($pr);
+    $bitacoraPR['user'] = $this->session->id;
+    $bitacoraPR['estatus'] = 'SURTIDO DE STOCK';
+    $this->Modelo->estatusPR($bitacoraPR);
+
+    // Registra en bitácora el nuevo estatus "POR RECIBIR"
+    $bitacoraPR['pr'] = intval($pr);
+    $bitacoraPR['user'] = $this->session->id;
+    $bitacoraPR['estatus'] = 'POR RECIBIR';
+    $this->Modelo->estatusPR($bitacoraPR);
+
+    // Devuelve 1 si la actualización fue exitosa
+    if ($res) {
+        echo 1;
     }
+}
+
     function ajax_getUsuariosQR(){
-        
+    // Obtener usuarios activos del departamento de COMPRAS con privilegios de editar QR
+    $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Nombre, P.puesto as Puesto, U.correo, PR.editar_qr 
+              FROM usuarios U 
+              INNER JOIN puestos P ON U.puesto = P.id 
+              INNER JOIN privilegios PR ON PR.usuario = U.id 
+              WHERE U.activo = 1 AND U.departamento='COMPRAS'";
 
-        $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Nombre, P.puesto as Puesto, U.correo, PR.editar_qr from usuarios U inner join puestos P on U.puesto = P.id inner join privilegios PR on PR.usuario = U.id where U.activo = 1 and U.departamento='COMPRAS'";
-
-
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
     }
-    function asignarUsuariosQR(){
-        $qr=$this->input->post('qr');
-        $id=$this->input->post('id');
-        
-         $mail ="SELECT correo from usuarios WHERE id =".$id;
-        $correo = $this->Conexion->consultar($mail);
-        
-        foreach($correo as $elem){     
+}
+
+function asignarUsuariosQR(){
+    // Obtener datos desde POST
+    $qr = $this->input->post('qr');
+    $id = $this->input->post('id');
+
+    // Consultar correo del usuario a asignar
+    $mail = "SELECT correo FROM usuarios WHERE id =".$id;
+    $correo = $this->Conexion->consultar($mail);
+
+    // Enviar correo de asignación
+    foreach($correo as $elem){     
         $dato['qr'] = $qr;
         $dato['correo'] = $elem->correo;
         $this->correos->asignarQR($dato);    
-        }
-        //die();
-        date_default_timezone_set('America/Chihuahua');
-        $date=date('Y-m-d h:i:s');
-         
-       
-       //if (!empty($qr) && !empty($id)) {
-        $data['asignado'] = intval($id);
-        $data['asignador'] = $this->session->id;
-        $data['fechaAsignacion'] = $date;
-        $where['id'] = intval($qr);
-        $this->Conexion->modificar('requisiciones_cotizacion', $data, null, $where);   
-	$bitacoraQR['qr']=intval($qr);
-        $bitacoraQR['user']=$this->session->id;
-        $bitacoraQR['estatus']='Asignacion por: '.$this->session->nombre;
-        $this->Modelo->estatusQR($bitacoraQR);
-
- 
-
-        $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Nombre, P.puesto as Puesto, U.correo, qr.id as QR, qr.asignado, fechaAsignacion, concat(A.nombre, ' ', A.paterno) as Asignador from usuarios U inner join puestos P on U.puesto = P.id join requisiciones_cotizacion qr on qr.asignado = U.id join usuarios A on A.id=qr.asignador WHERE qr.id =".$qr;
-
-
-        $res = $this->Conexion->consultar($query);
-        
-        
- 
-        if($res)
-        {
-            echo json_encode($res);
-        }
-
     }
-    function buscarML(){
-        
 
-        $item = $this->input->post('item');
-        $destino = $this->input->post('destino');
-        $tipo = $this->input->post('tipo');
+    // Guardar asignación en base de datos
+    date_default_timezone_set('America/Chihuahua');
+    $date = date('Y-m-d h:i:s');
 
-        if ($destino =='VENTA' && $tipo == 'PRODUCTO') {
-                    $query = "Select rs.Item_id, rs.Equipo_ID, rs.serie , rs.tecnico_id, rs.fechaActEQ, rs.Modelo, rs.Fabricante, t.Nombre from rsitems rs JOIN catalogo_tecnicos t ON rs.tecnico_id = t.Tecnico_Id where item_id = '".$item."' and Equipo_id is null and fechaACtEQ is null ";
-            } else{
-            $query = "Select rs.Item_id, rs.Equipo_ID, rs.serie , rs.tecnico_id, rs.fechaActEQ, rs.Modelo, rs.Fabricante, t.Nombre from rsitems rs JOIN catalogo_tecnicos t ON rs.tecnico_id = t.Tecnico_Id where item_id = '".$item."' and Equipo_id is not null and fechaACtEQ is null";
-            }       
-        
-        //echo $query;die();
-        $res = $this->MLConexion->consultar($query);
-        //echo var_dump($res);die();
-        if($res)
-        {
-            echo json_encode($res);
-        }
-           
+    $data['asignado'] = intval($id);
+    $data['asignador'] = $this->session->id;
+    $data['fechaAsignacion'] = $date;
+    $where['id'] = intval($qr);
+    $this->Conexion->modificar('requisiciones_cotizacion', $data, null, $where);   
 
+    // Registrar bitácora
+    $bitacoraQR['qr'] = intval($qr);
+    $bitacoraQR['user'] = $this->session->id;
+    $bitacoraQR['estatus'] = 'Asignacion por: ' . $this->session->nombre;
+    $this->Modelo->estatusQR($bitacoraQR);
+
+    // Consultar y devolver información completa de asignación
+    $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Nombre, P.puesto as Puesto, U.correo, 
+                     qr.id as QR, qr.asignado, fechaAsignacion, concat(A.nombre, ' ', A.paterno) as Asignador 
+              FROM usuarios U 
+              INNER JOIN puestos P ON U.puesto = P.id 
+              JOIN requisiciones_cotizacion qr ON qr.asignado = U.id 
+              JOIN usuarios A ON A.id = qr.asignador 
+              WHERE qr.id = ".$qr;
+
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
     }
-    function agregarAtributos(){
-        $att = $this->input->post('ATT');
-        $qr = $this->input->post('qr');
+}
 
-        foreach( $att as $elem){
-           /* $query = "SELECT * from qr_atributos_temp where item= ".$elem['Item_id']. "and idQr = ".intval($qr);
-            $res = $this->Conexion->consultar($query);*/
-           // echo var_dump($res);die();
+function buscarML(){
+    // Recibe parámetros por POST
+    $item = $this->input->post('item');
+    $destino = $this->input->post('destino');
+    $tipo = $this->input->post('tipo');
 
-            $datos['idQr'] = intval($qr);
-            $datos['item']=$elem['Item_id'];
-            $datos['equipo']=$elem['Equipo_ID'];
-            $datos['serie']=$elem['serie'];
-            $datos['modelo']=$elem['Modelo'];
-            $datos['fabricante']=$elem['Fabricante'];
-            $datos['asignado']=$elem['Nombre'];
-            $this->Conexion->insertar('qr_atributos_temp', $datos, $funciones=null);
-        }
-        
-        $query = "SELECT * from qr_atributos_temp where idQr= ".$qr;
-
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }          
-
+    // Consulta los items disponibles según tipo/destino
+    if ($destino == 'VENTA' && $tipo == 'PRODUCTO') {
+        $query = "SELECT rs.Item_id, rs.Equipo_ID, rs.serie , rs.tecnico_id, rs.fechaActEQ, 
+                         rs.Modelo, rs.Fabricante, t.Nombre 
+                  FROM rsitems rs 
+                  JOIN catalogo_tecnicos t ON rs.tecnico_id = t.Tecnico_Id 
+                  WHERE item_id = '".$item."' AND Equipo_id IS NULL AND fechaACtEQ IS NULL";
+    } else {
+        $query = "SELECT rs.Item_id, rs.Equipo_ID, rs.serie , rs.tecnico_id, rs.fechaActEQ, 
+                         rs.Modelo, rs.Fabricante, t.Nombre 
+                  FROM rsitems rs 
+                  JOIN catalogo_tecnicos t ON rs.tecnico_id = t.Tecnico_Id 
+                  WHERE item_id = '".$item."' AND Equipo_id IS NOT NULL AND fechaACtEQ IS NULL";
     }
-    function cargarItems(){
-        $qr = $this->input->post('qr');
-        $query = "SELECT * from qr_atributos_temp where idQr= ".$qr;
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }          
+
+    // Ejecutar consulta
+    $res = $this->MLConexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
     }
+}
+
+function agregarAtributos(){
+    // Recibe atributos e ID de QR por POST
+    $att = $this->input->post('ATT');
+    $qr = $this->input->post('qr');
+
+    // Inserta los atributos recibidos en la tabla temporal
+    foreach($att as $elem){
+        $datos['idQr'] = intval($qr);
+        $datos['item'] = $elem['Item_id'];
+        $datos['equipo'] = $elem['Equipo_ID'];
+        $datos['serie'] = $elem['serie'];
+        $datos['modelo'] = $elem['Modelo'];
+        $datos['fabricante'] = $elem['Fabricante'];
+        $datos['asignado'] = $elem['Nombre'];
+        $this->Conexion->insertar('qr_atributos_temp', $datos, $funciones = null);
+    }
+
+    // Consultar todos los atributos agregados para ese QR
+    $query = "SELECT * FROM qr_atributos_temp WHERE idQr = ".$qr;
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
+function cargarItems(){
+    // Recibe ID de QR por POST
+    $qr = $this->input->post('qr');
+
+    // Consulta todos los items temporales relacionados a ese QR
+    $query = "SELECT * FROM qr_atributos_temp WHERE idQr = ".$qr;
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
     function eliminarAtributos(){
-        $id = $this->input->post('id');
-        $qr = $this->input->post('qr');
-        $where['id'] =$id;
-        $this->Conexion->eliminar('qr_atributos_temp', $where);
-        $query = "SELECT * from qr_atributos_temp where idQr= ".$qr;
+    // Elimina un atributo temporal del QR y devuelve los atributos restantes
+    $id = $this->input->post('id');
+    $qr = $this->input->post('qr');
+    $where['id'] = $id;
 
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        } 
+    $this->Conexion->eliminar('qr_atributos_temp', $where);
 
+    $query = "SELECT * FROM qr_atributos_temp WHERE idQr = ".$qr;
+    $res = $this->Conexion->consultar($query);
+
+    if($res) {
+        echo json_encode($res);
+    } 
+}
+
+function asignarCompras(){
+    // Asigna un técnico fijo (id 34) a un item en rsitems (ML), y lo etiqueta como 'Compras' en atributos temporales
+    $item = $this->input->post('item');
+    $qr = $this->input->post('qr');
+
+    $data['tecnico_id'] = '34';
+    $where['Item_id'] = $item;
+    $this->MLConexion->modificar('rsitems', $data, null, $where);
+
+    $dato['asignado'] = 'Compras';
+    $donde['item'] = $item;
+    $this->Conexion->modificar('qr_atributos_temp', $dato, null, $donde);
+
+    $query = "SELECT * FROM qr_atributos_temp WHERE idQr = ".$qr;
+    $res = $this->Conexion->consultar($query);
+
+    if($res) {
+        echo json_encode($res);
     }
+}
 
-    function asignarCompras(){
-        $item = $this->input->post('item');
-        $qr = $this->input->post('qr');
-        $data['tecnico_id'] = '34';
-        $where['Item_id'] = $item;
-        $this->MLConexion->modificar('rsitems', $data, null, $where);
+function validarAtributos(){
+    // Verifica si un item ya está registrado en un QR específico
+    $item = $this->input->post('item');
+    $qr = $this->input->post('qr');
+    $query = "SELECT * FROM qr_atributos_temp WHERE item = ".$item." AND idQr = ".$qr;
+    $res = $this->Conexion->consultar($query);
 
-        $dato['asignado'] = 'Compras';
-        $donde['item'] = $item;
-        $this->Conexion->modificar('qr_atributos_temp', $dato, null, $donde);
-        $query = "SELECT * from qr_atributos_temp where idQr= ".$qr;
-
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-
+    if($res) {
+        echo json_encode($res);
     }
-    function validarAtributos(){
-        $item = $this->input->post('item');
-        $qr = $this->input->post('qr');
-       
-        $query = "SELECT * from qr_atributos_temp where item = ".$item ." and idQr= ".$qr;
-       // echo var_dump($query);
+}
 
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+function getItem(){
+    // Obtiene detalles de un atributo PR específico
+    $item = $this->input->post('item');
+    $query = "SELECT * FROM pr_atributos WHERE id = ".$item;
+    $res = $this->Conexion->consultar($query, TRUE);
 
+    if($res) {
+        echo json_encode($res);
     }
-    function getItem(){
-        $item = $this->input->post('item');
-        
-       
-        $query = "SELECT * from pr_atributos where id = ".$item;
-       // echo var_dump($query);
+}
 
-        $res = $this->Conexion->consultar($query, TRUE);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+function ValidarItem(){
+    // Verifica si un item ya está ligado a una PR activa (no cancelada)
+    $item = $this->input->post('item');
 
-    }
-    function ValidarItem(){
-       $item = $this->input->post('item');
-        
-       
-        $query = "SELECT pa.item, pa.idPr, pr.estatus FROM pr_atributos pa JOIN prs pr on pa.idPr=pr.id WHERE pa.item ='". $item ."' and pr.estatus != 'CANCELADO'";
-        //echo var_dump($query);
+    $query = "SELECT pa.item, pa.idPr, pr.estatus 
+              FROM pr_atributos pa 
+              JOIN prs pr ON pa.idPr = pr.id 
+              WHERE pa.item = '".$item."' AND pr.estatus != 'CANCELADO'";
+    $res = $this->Conexion->consultar($query, TRUE);
 
-        $res = $this->Conexion->consultar($query, TRUE);
-        if($res)
-        {
-            echo json_encode($res);
-        } 
-    }
+    if($res) {
+        echo json_encode($res);
+    } 
+}
+
+function getFileEx(){
+    // Obtiene el nombre y contenido binario del archivo de ejemplo asociado a un QR
+    $id = $this->input->post('qr');
+
+    $query = "SELECT nombre_archivoEjemplo, archivoEjemplo 
+              FROM requisiciones_cotizacion 
+              WHERE id = ".$id;
     
-    function getFileEx(){
-        $id=$this->input->post('qr');
-        $query = "SELECT nombre_archivoEjemplo, archivoEjemplo from requisiciones_cotizacion where id =".$id;
-        //echo $query;die();
-        $res = $this->Modelo->consulta($query, TRUE);
-        //echo var_dump($res);die();
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "";
-        }
+    $res = $this->Modelo->consulta($query, TRUE);
+
+    if($res) {
+        echo json_encode($res);
+    } else {
+        echo "";
     }
-    function getFileExample($qr){
-        $row = $this->descargas_model->getFile($qr, 'requisiciones_cotizacion');
-        $file = $row->archivoEjemplo;
-        $nombre = $row->nombre_archivoEjemplo;
+}
 
-        //$file = 'dummy.pdf';
-        header('Content-type: application/pdf');
-        header('Content-Disposition: inline; filename="' . $nombre . '"');
-        header('Content-Transfer-Encoding: binary');
-        //header('Content-Length: ' . filesize($file));
-        header('Accept-Ranges: bytes');
+function getFileExample($qr){
+    // Despliega un archivo PDF ejemplo en el navegador sin forzar descarga
+    $row = $this->descargas_model->getFile($qr, 'requisiciones_cotizacion');
+    $file = $row->archivoEjemplo;
+    $nombre = $row->nombre_archivoEjemplo;
 
-        echo $file;
+    header('Content-type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $nombre . '"');
+    header('Content-Transfer-Encoding: binary');
+    header('Accept-Ranges: bytes');
+    echo $file;
+}
 
-        //force_download($nombre, $file);
+   function ajax_subirArchivoQRClon() {
+    // Clona el archivo PDF de un QR y lo asocia al QR más reciente
+    $id = $this->input->post('qr');
+
+    // Obtener archivo original del QR base
+    $query = "SELECT nombre_archivo, archivo FROM requisiciones_cotizacion WHERE id = " . $id;
+    $res = $this->Conexion->consultar($query, TRUE);
+
+    $datos['archivo'] = $res->archivo;
+
+    // Obtener el último QR generado (para usar su ID como nuevo archivo)
+    $query = "SELECT * FROM requisiciones_cotizacion ORDER BY id DESC LIMIT 1";
+    $r = $this->Conexion->consultar($query, TRUE);
+
+    $datos['id'] = $r->id;
+    $datos['nombre_archivo'] = str_pad($datos['id'], 6, "0", STR_PAD_LEFT) . ".pdf";
+
+    if (!$this->Modelo->setQRFile($datos)) {
+        trigger_error("Error al subir archivo", E_USER_ERROR);
+    } else {
+        echo "1";
     }
-    function ajax_subirArchivoQRClon() {
-        
-        $id = $this->input->post('qr');
-        $query ="SELECT nombre_archivo, archivo from requisiciones_cotizacion where id =".$id;
+}
 
-        $res=$this->Conexion->consultar($query, TRUE);
-        
-        $datos['archivo'] = $res->archivo;
-        $query ="select * from requisiciones_cotizacion ORDER BY id DESC LIMIT 1";
-         $r=$this->Conexion->consultar($query, TRUE);
-        $datos['id'] = $r->id;
-        $datos['nombre_archivo'] = str_pad($datos['id'], 6, "0", STR_PAD_LEFT) . ".pdf";
-        if(!$this->Modelo->setQRFile($datos))
-        {
-            trigger_error("Error al subir archivo", E_USER_ERROR);
-        }
-        else {
-            //echo $datos['nombre_archivo'];
-            echo "1";
-        }
+function checkFile() {
+    // Verifica si el QR tiene un archivo cargado
+    $id = $this->input->post('qr');
+    $query = "SELECT nombre_archivo FROM requisiciones_cotizacion WHERE id = " . $id;
+    $res = $this->Modelo->consulta($query, TRUE);
+
+    if ($res->nombre_archivo) {
+        echo 1;
+    } else {
+        echo 0;
     }
-    function checkFile(){
-        $id=$this->input->post('qr');
-        $query = "SELECT nombre_archivo from requisiciones_cotizacion where id =".$id;
-        //echo $query;die();
-        $res = $this->Modelo->consulta($query, TRUE);
-        //echo var_dump($res->nombre_archivo);die();
-        if($res->nombre_archivo)
-        {
-            echo 1;
-        }
-        else {
-            echo 0;
-        }
+}
+
+function uploadFileEx() {
+    // Sube archivo de ejemplo (binario) a la requisición
+    $datos['id'] = $this->input->post('qr');
+    $datos['archivoEjemplo'] = file_get_contents($_FILES['file']['tmp_name']);
+    $datos['nombre_archivoEjemplo'] = $_FILES['file']['name'];
+
+    if (!$this->Modelo->archivo_ejemplo($datos)) {
+        trigger_error("Error al subir archivo", E_USER_ERROR);
+    } else {
+        echo $datos['nombre_archivoEjemplo'];
     }
+}
 
-    function uploadFileEx() {
-        $datos['id'] = $this->input->post('qr');
-        $datos['archivoEjemplo'] = file_get_contents($_FILES['file']['tmp_name']);
-        $datos['nombre_archivoEjemplo'] = $_FILES['file']['name'];
-        ///echo var_dump($datos);die();
-        if(!$this->Modelo->archivo_ejemplo($datos))
-        {
-            trigger_error("Error al subir archivo", E_USER_ERROR);
-        }
-        else {
-            echo $datos['nombre_archivoEjemplo'];
-        }
+function eliminarArchivoEx() {
+    // Elimina el archivo de ejemplo asociado a una requisición
+    $datos['id'] = $this->input->post('qr');
+    $datos['archivoejemplo'] = null;
+    $datos['nombre_archivoejemplo'] = null;
+
+    if (!$this->Modelo->archivo_ejemplo($datos)) {
+        trigger_error("Error al eliminar archivo", E_USER_ERROR);
+    } else {
+        echo "1";
     }
-    function eliminarArchivoEx(){
-        $datos['id'] = $this->input->post('qr');
-        $datos['archivoejemplo'] = null;
-        $datos['nombre_archivoejemplo'] = null;
+}
 
-        if(!$this->Modelo->archivo_ejemplo($datos))
-        {
-            trigger_error("Error al eliminar archivo", E_USER_ERROR);
-        }
-        else {
-            echo "1";
-        }
+function checkDestino() {
+    // Devuelve el destino asignado a una requisición QR
+    $id = $this->input->post('qr');
+    $query = "SELECT destino FROM requisiciones_cotizacion WHERE id = " . $id;
+    $res = $this->Conexion->consultar($query, TRUE);
+
+    if ($res) {
+        echo json_encode($res);
+    } else {
+        echo "1";
     }
-
-    function checkDestino(){
-         $id = $this->input->post('qr');
-        $query ="SELECT destino from requisiciones_cotizacion where id = ".$id;
-
-        $res=$this->Conexion->consultar($query, TRUE);
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else {
-            echo "1";
-        }
-
-    }
-    
-
+}
 }
