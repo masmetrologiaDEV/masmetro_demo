@@ -6,23 +6,18 @@ class Documentacion extends CI_Controller {
 
     function __construct() {
         parent::__construct();
-        $this->load->model('conexion_model', 'Conexion');
+        $this->load->model('conexion_model', 'Conexion'); // Carga el modelo de conexión general
     }
 
-    function manuales(){
+    // Muestra la vista del catálogo de manuales
+    function manuales() {
         $this->load->view('header');
         $this->load->view('documentacion/catalogo');
     }
 
-    function mapa_sitio(){
+    // Muestra la vista del mapa del sitio
+    function mapa_sitio() {
         $this->load->view('header');
         $this->load->view('documentacion/mapa_sitio');
     }
-    
-    /////////////////////////////  A        /////////////////////////////
-    /////////////////////////////    J      /////////////////////////////   (\(\
-    /////////////////////////////      A    /////////////////////////////   (=';')
-    /////////////////////////////        X  /////////////////////////////   (,,)(")(")
-
-
 }

@@ -1950,7 +1950,6 @@ function excel()
                         </tr>
                     </thead>
                     <tbody>';
-
     $d = 2;
 
     // Cuerpo de la tabla con los datos obtenidos
@@ -2143,14 +2142,5 @@ WHERE C.estatus NOT IN ('CERRADO TOTAL', 'CERRADO PARCIAL', 'CANCELADA')
   $res = $this->Conexion->consultar($query, TRUE);
   //echo $query;die
         echo json_encode($res);
-    
-     
     }
-    
-
-
-
-
-
-
 }
