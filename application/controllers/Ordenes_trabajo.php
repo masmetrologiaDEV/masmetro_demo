@@ -7,546 +7,580 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class ordenes_trabajo extends CI_Controller {
 
     function __construct() {
-        parent::__construct();
-        $this->load->library('correos_facturacion');
-        $this->load->model('MLConexion_model', 'MLConexion');
-        $this->load->library('correos');
-        $this->load->library('AOS_funciones');
-        $this->load->library('ciqrcode');
+    parent::__construct();
+
+    // Carga bibliotecas necesarias para órdenes de trabajo
+    $this->load->library('correos_facturacion');
+    $this->load->model('MLConexion_model', 'MLConexion');
+    $this->load->library('correos');
+    $this->load->library('AOS_funciones');
+    $this->load->library('ciqrcode');
+}
+
+// Vista principal del catálogo de órdenes de trabajo
+function index(){
+    $this->load->view('header');
+    $this->load->view('ordenes_trabajo/catalogo');
+}
+
+// Vista del catálogo de órdenes con listado de técnicos activos
+function catalogo_wo(){
+    $data['tecnicos']= $this->MLConexion->consultar("SELECT * from catalogo_tecnicos where activo = '-1'");
+    $this->load->view('header');
+    $this->load->view('ordenes_trabajo/catalogo_wo', $data);
+}
+
+// Carga la vista para crear una nueva orden de trabajo
+function crear_orden(){
+    $this->load->view('header');
+    $this->load->view('ordenes_trabajo/work_orders');
+}
+
+// Carga la vista para editar una solicitud de facturación
+function editar_solicitud(){
+    if(isset($_POST["id"])) {
+        $id = $this->input->post('id');
+    } else if ($id == 0){
+        redirect(base_url('inicio'));
     }
 
-    function index(){
-        $this->load->view('header');
-        $this->load->view('ordenes_trabajo/catalogo');
-    }
-    function catalogo_wo(){
-        $data['tecnicos']= $this->MLConexion->consultar("SELECT * from catalogo_tecnicos where activo = '-1'");
-        $this->load->view('header');
-        $this->load->view('ordenes_trabajo/catalogo_wo', $data);
-    }
+    $data["id"] = $id;
+    $data["editar"] = true;
 
-   
-    function crear_orden(){
-        
+    $this->load->view('header');
+    $this->load->view('facturas/solicitud_facturas', $data);
+}
 
-        $this->load->view('header');
-        $this->load->view('ordenes_trabajo/work_orders');
+// Visualiza el detalle de una orden de trabajo específica
+function ver_wo($id = 0){
+    if(isset($_POST["id"])) {
+        $id = $this->input->post('id');
+    } else if ($id == 0){
+        redirect(base_url('inicio'));
     }
 
-    function editar_solicitud(){
-        if(isset($_POST["id"]))
-        {
-            $id = $this->input->post('id');
-        }
-        else if ($id == 0){
-            redirect(base_url('inicio'));
-        }
+    $data["id"] = $id;
 
-        $data["id"] = $id;
-        $data["editar"] = true;
+    // Consulta de detalles de la orden y descripción compuesta del equipo
+    $query = "SELECT wo.*, wd.*, rs.folio_id, rs.Localizacion, ei.Status_Descripcion as estatus_item, ew.Status_Descripcion as estatus_wo, concat(rs.descripcion, if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)), if(isnull(rs.Equipo_ID), '', concat(' ID: ', rs.Equipo_ID))) as CadenaDescripcion from WO_Master wo JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN rsitems rs ON rs.item_id=wd.Item_Id JOIN tblStatusWO ei on ei.Status_id = wd.Item_Status JOIN tblStatusWO ew on ew.Status_ID=wo.WorkOrder_Status where wo.WorkOrder_ID = ".$id;
+    $data['wo_detail']=$this->MLConexion->consultar($query);
 
-        $this->load->view('header');
-        $this->load->view('facturas/solicitud_facturas', $data);
-    }
+    // Consulta de información general de la orden y datos del cliente
+    $query2 = "SELECT wo.*, wd.*, we.Status_Descripcion, rh.Empresa, rh.Direccion1, rh.Contacto, rh.TelefonoContacto, rh.CelularContacto from WO_Master wo left JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN tblStatusWO we on we.Status_ID=wo.WorkOrder_Status join rsheaders rh on rh.folio_id=wo.rs where wo.WorkOrder_ID= ".$id;
+    $data['wo']=$this->MLConexion->consultar($query2, TRUE);
 
-    function ver_wo($id = 0){
-
-        if(isset($_POST["id"]))
-        {
-            $id = $this->input->post('id');
-
-        }
-        else if ($id == 0){
-            redirect(base_url('inicio'));
-        }
-
-        $data["id"] = $id;
-        $query = "SELECT wo.*, wd.*, rs.folio_id, rs.Localizacion, ei.Status_Descripcion as estatus_item, ew.Status_Descripcion as estatus_wo, concat(rs.descripcion, if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)), if(isnull(rs.Equipo_ID), '', concat(' ID: ', rs.Equipo_ID))) as CadenaDescripcion from WO_Master wo JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN rsitems rs ON rs.item_id=wd.Item_Id JOIN tblStatusWO ei on ei.Status_id = wd.Item_Status JOIN tblStatusWO ew on ew.Status_ID=wo.WorkOrder_Status where wo.WorkOrder_ID = ".$id;
-        $data['wo_detail']=$this->MLConexion->consultar($query);
-        $query2 = "SELECT wo.*, wd.*, we.Status_Descripcion, rh.Empresa, rh.Direccion1, rh.Contacto, rh.TelefonoContacto, rh.CelularContacto from WO_Master wo left JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN tblStatusWO we on we.Status_ID=wo.WorkOrder_Status join rsheaders rh on rh.folio_id=wo.rs where wo.WorkOrder_ID= ".$id;
-        $data['wo']=$this->MLConexion->consultar($query2, TRUE);       
-
-        $this->load->view('header');
-        $this->load->view('ordenes_trabajo/ver_wo', $data);
-    }
-
-
-
-    /////////////////////////////
+    $this->load->view('header');
+    $this->load->view('ordenes_trabajo/ver_wo', $data);
+}
 
     function ajax_setWO(){
-        $wo = json_decode($this->input->post('wo'));
-        $rs_items = json_decode($this->input->post('rs_items'));
-       
+    $wo = json_decode($this->input->post('wo'));
+    $rs_items = json_decode($this->input->post('rs_items'));
 
-        $wo->WorkOrder_Status=1;
-        $wo->correo_us=$this->session->correo;
-        
-        $res = false;
-        
-           
-            $res = $this->MLConexion->insertar('WO_Master', $wo);
-            /*      */    
-           
-            foreach ($rs_items as $key) {
-                $wo_detail['WorkOrder_ID']=$res;
-                $wo_detail['Item_Id']=$key->item_id;
-                $wo_detail['Item_Status']=1;
+    // Establece el estatus inicial de la orden de trabajo
+    $wo->WorkOrder_Status = 1;
+    $wo->correo_us = $this->session->correo;
 
-                $rs=$this->MLConexion->insertar('WO_Detail', $wo_detail);
-                $funciones = array('FechaInWO' => 'CURRENT_TIMESTAMP()');
-                $rs_items['WOrder_ID']=$res;
-                $this->MLConexion->comando("UPDATE rsitems SET FechaInWO =  CURRENT_TIMESTAMP(), WOrder_ID ='".$res."' WHERE item_id = '".$key->item_id."'");
-                
-            }
-        
-        $mail['usuario']= $this->session->nombre;
-        $mail['wo']=$res;
-        $correo = [];
-        $correos_a=$this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
-        foreach ($correos_a as $key => $value) {
-            array_push($correo, $value->correo);
-        }
-         $mail['correos'] = array_merge(array($this->session->correo),$correo);
-         //echo var_dump($mail);
-        $this->correos->crear_wo($mail);
-            $query="SELECT * FROM WO_Master WHERE WorkOrder_ID=(SELECT MAX(WorkOrder_ID) FROM WO_Master) and correo_us='".$this->session->correo."'";
+    $res = false;
 
-            $res = $this->MLConexion->consultar($query, TRUE);
-            
-            $t='https://validacion.masmetrologia.mx/ordenes_trabajo/ordenes_trabajo/ver_wo/'.$res->WorkOrder_ID;
-        $qr='WO_'.$res->WorkOrder_ID.".png";
-        $file = 'data/wo/'.$qr;
-        QRcode::png($t, $file, 'L', 10, 2);
-        $this->MLConexion->comando("UPDATE WO_Master SET qr =  '".$qr."' WHERE WorkOrder_ID=".$res->WorkOrder_ID); 
-        if($res)
-        {
-            echo "1";
-        }
+    // Inserta la orden de trabajo en WO_Master
+    $res = $this->MLConexion->insertar('WO_Master', $wo);
+
+    // Por cada ítem de RS asociado, inserta en WO_Detail y actualiza rsitems
+    foreach ($rs_items as $key) {
+        $wo_detail['WorkOrder_ID'] = $res;
+        $wo_detail['Item_Id'] = $key->item_id;
+        $wo_detail['Item_Status'] = 1;
+
+        $this->MLConexion->insertar('WO_Detail', $wo_detail);
+        $this->MLConexion->comando("UPDATE rsitems SET FechaInWO = CURRENT_TIMESTAMP(), WOrder_ID ='".$res."' WHERE item_id = '".$key->item_id."'");
     }
 
+    // Prepara y envía correo de notificación de creación de WO
+    $mail['usuario'] = $this->session->nombre;
+    $mail['wo'] = $res;
+    $correo = [];
+    $correos_a = $this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
+    foreach ($correos_a as $key => $value) {
+        array_push($correo, $value->correo);
+    }
+    $mail['correos'] = array_merge(array($this->session->correo), $correo);
+    $this->correos->crear_wo($mail);
+
+    // Genera código QR con enlace para visualizar la orden de trabajo
+    $query = "SELECT * FROM WO_Master WHERE WorkOrder_ID=(SELECT MAX(WorkOrder_ID) FROM WO_Master) and correo_us='".$this->session->correo."'";
+    $res = $this->MLConexion->consultar($query, TRUE);
+    $t = 'https://validacion.masmetrologia.mx/ordenes_trabajo/ordenes_trabajo/ver_wo/'.$res->WorkOrder_ID;
+    $qr = 'WO_'.$res->WorkOrder_ID.".png";
+    $file = 'data/wo/'.$qr;
+    QRcode::png($t, $file, 'L', 10, 2);
+    $this->MLConexion->comando("UPDATE WO_Master SET qr =  '".$qr."' WHERE WorkOrder_ID=".$res->WorkOrder_ID);
+
+    // Respuesta al frontend si la creación fue exitosa
+    if($res) {
+        echo "1";
+    }
+}
+    
     function ajax_getSolicitudes(){
-        $texto = $this->input->post('texto');
-        $parametro = $this->input->post('parametro');
-        $cliente = $this->input->post('cliente');
-        $estatus = $this->input->post('estatus');
-        $tipo = $this->input->post('tipo');
-        $cerradas = $this->input->post('cerradas');
+    $texto = $this->input->post('texto');
+    $parametro = $this->input->post('parametro');
+    $cliente = $this->input->post('cliente');
+    $estatus = $this->input->post('estatus');
+    $tipo = $this->input->post('tipo');
+    $cerradas = $this->input->post('cerradas');
     $fecha1 = $this->input->post('fecha1');
-        $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59';
+    $fecha2 = $this->input->post('fecha2');
 
-          $query = "select wo.WorkOrder_ID, wo.rs, wo.correo_us, wo.FCreacion, wo.FProgramado, wo.FRetroalimentacion, wo.WorkOrder_Status, rs.`Nombre Corto` as Empresa, C.Cust_ID as empresa, e.Status_Descripcion from WO_Master wo join tblStatusWO e on e.Status_ID=wo.WorkOrder_Status JOIN rsheaders rs on rs.folio_id =wo.rs join catalogo_clientes C on rs.Cust_ID = C.Cust_ID where correo_us ='".$this->session->correo."'";
+    $f1 = strval($fecha1).' 00:00:00';
+    $f2 = strval($fecha2).' 23:59:59';
 
-          if($cerradas == "0")
-                {
-                    $query .= " and (wo.WorkOrder_Status != '4')";
-                }else{
-                    $query .= " and (wo.WorkOrder_Status = '4')";
-                }
-          if(!empty($texto))
-            {
-                $query.=" and rs.folio_id = ".$texto;
+    // Consulta inicial: todas las órdenes de trabajo del usuario en sesión
+    $query = "select wo.WorkOrder_ID, wo.rs, wo.correo_us, wo.FCreacion, wo.FProgramado, wo.FRetroalimentacion, wo.WorkOrder_Status, rs.`Nombre Corto` as Empresa, C.Cust_ID as empresa, e.Status_Descripcion from WO_Master wo join tblStatusWO e on e.Status_ID=wo.WorkOrder_Status JOIN rsheaders rs on rs.folio_id =wo.rs join catalogo_clientes C on rs.Cust_ID = C.Cust_ID where correo_us ='".$this->session->correo."'";
 
-
-            }
-            if(!empty($cliente) && $cliente != 0)
-            {
-                $query .= " and C.Cust_ID  = '$cliente'";
-            }
-            if(!empty($estatus) && $estatus != 'TODO')
-            {
-                $query .= " and wo.WorkOrder_Status = '$estatus'";
-            }
-            if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and wo.FProgramado BETWEEN '".$f1."' AND '".$f2."' ";
-        }
-        
-        $query .= " order by FProgramado desc";
-//echo $query;die();
-        $res = $this->MLConexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Filtro según si se desea ver solo abiertas o cerradas
+    if($cerradas == "0") {
+        $query .= " and (wo.WorkOrder_Status != '4')";
+    } else {
+        $query .= " and (wo.WorkOrder_Status = '4')";
     }
+
+    // Filtro por número de folio
+    if(!empty($texto)) {
+        $query .= " and rs.folio_id = ".$texto;
+    }
+
+    // Filtro por cliente
+    if(!empty($cliente) && $cliente != 0) {
+        $query .= " and C.Cust_ID  = '$cliente'";
+    }
+
+    // Filtro por estatus
+    if(!empty($estatus) && $estatus != 'TODO') {
+        $query .= " and wo.WorkOrder_Status = '$estatus'";
+    }
+
+    // Filtro por rango de fechas programadas
+    if (!empty($fecha1) && !empty($fecha2)) {
+        $query .= " and wo.FProgramado BETWEEN '".$f1."' AND '".$f2."'";
+    }
+
+    // Ordena los resultados por fecha programada más reciente
+    $query .= " order by FProgramado desc";
+
+    // Ejecuta la consulta y devuelve los resultados en formato JSON
+    $res = $this->MLConexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
     function ajax_getWo(){
     $texto = $this->input->post('texto');
-        $parametro = $this->input->post('parametro');
-        $cliente = $this->input->post('cliente');
-        $estatus = $this->input->post('estatus');
-        $tecnico = $this->input->post('tecnico');
-        $tipo = $this->input->post('tipo');
-        $cerradas = $this->input->post('cerradas');
+    $parametro = $this->input->post('parametro');
+    $cliente = $this->input->post('cliente');
+    $estatus = $this->input->post('estatus');
+    $tecnico = $this->input->post('tecnico');
+    $tipo = $this->input->post('tipo');
+    $cerradas = $this->input->post('cerradas');
     $fecha1 = $this->input->post('fecha1');
-        $fecha2 = $this->input->post('fecha2');
-        $f1=strval($fecha1).' 00:00:00';
-        $f2=strval($fecha2).' 23:59:59';
-        
+    $fecha2 = $this->input->post('fecha2');
 
-        $query = "select wo.WorkOrder_ID, wo.rs, wo.correo_us, wo.FCreacion, wo.FProgramado, wo.FRetroalimentacion, wo.WorkOrder_Status, rs.`Nombre Corto` as Empresa, e.Status_Descripcion, C.Cust_ID as empresa, ct.Nombre from WO_Master wo join tblStatusWO e on e.Status_ID=wo.WorkOrder_Status JOIN rsheaders rs on rs.folio_id =wo.rs join catalogo_tecnicos ct on ct.email_tecnico=wo.correo_us join catalogo_clientes C on rs.Cust_ID = C.Cust_ID where 1=1 ";
-        if($cerradas == "0")
-                {
-                    $query .= " and (wo.WorkOrder_Status != '4')";
-                }
-                else{
-                    $query .= " and (wo.WorkOrder_Status = '4')";
-                }
-          if(!empty($texto))
-            {
-                $query.=" and rs.folio_id = ".$texto;
+    $f1 = strval($fecha1).' 00:00:00';
+    $f2 = strval($fecha2).' 23:59:59';
 
+    // Consulta principal de órdenes de trabajo (WO), unida con estatus, cliente, técnico y encabezado RS
+    $query = "select wo.WorkOrder_ID, wo.rs, wo.correo_us, wo.FCreacion, wo.FProgramado, wo.FRetroalimentacion, wo.WorkOrder_Status, rs.`Nombre Corto` as Empresa, e.Status_Descripcion, C.Cust_ID as empresa, ct.Nombre from WO_Master wo join tblStatusWO e on e.Status_ID=wo.WorkOrder_Status JOIN rsheaders rs on rs.folio_id =wo.rs join catalogo_tecnicos ct on ct.email_tecnico=wo.correo_us join catalogo_clientes C on rs.Cust_ID = C.Cust_ID where 1=1";
 
-            }
-            if(!empty($cliente) && $cliente != 0)
-            {
-                $query .= " and C.Cust_ID  = '$cliente'";
-            }
-            if(!empty($estatus) && $estatus != 'TODO')
-            {
-                $query .= " and wo.WorkOrder_Status = '$estatus'";
-            }
-            if(!empty($tecnico) && $tecnico != 'TODO')
-            {
-                $query .= " and wo.correo_us = '$tecnico'";
-            }
-            if (!empty($fecha1) && !empty($fecha2)) {
-            $query .=" and wo.FProgramado BETWEEN '".$f1."' AND '".$f2."' ";
-        }
-
-        $query .= " order by FProgramado desc";
-
-        $res = $this->MLConexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Filtra por estado: abierta o cerrada
+    if($cerradas == "0") {
+        $query .= " and (wo.WorkOrder_Status != '4')";
+    } else {
+        $query .= " and (wo.WorkOrder_Status = '4')";
     }
+
+    // Filtra por número de folio si se especifica
+    if(!empty($texto)) {
+        $query .= " and rs.folio_id = ".$texto;
+    }
+
+    // Filtra por cliente si se especifica
+    if(!empty($cliente) && $cliente != 0) {
+        $query .= " and C.Cust_ID  = '$cliente'";
+    }
+
+    // Filtra por estatus de la orden si se especifica
+    if(!empty($estatus) && $estatus != 'TODO') {
+        $query .= " and wo.WorkOrder_Status = '$estatus'";
+    }
+
+    // Filtra por técnico asignado si se especifica
+    if(!empty($tecnico) && $tecnico != 'TODO') {
+        $query .= " and wo.correo_us = '$tecnico'";
+    }
+
+    // Filtra por fechas si ambos extremos están definidos
+    if (!empty($fecha1) && !empty($fecha2)) {
+        $query .= " and wo.FProgramado BETWEEN '".$f1."' AND '".$f2."'";
+    }
+
+    // Ordena por fecha programada descendente
+    $query .= " order by FProgramado desc";
+
+    // Ejecuta consulta y responde con los resultados en formato JSON
+    $res = $this->MLConexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
     function realizado(){
-        $id=$this->input->post('itemOk');
-        $tipo_cal=$this->input->post('tipo_cal');
-        $txtrealizado=$this->input->post('txtrealizado');
+    $id = $this->input->post('itemOk');
+    $tipo_cal = $this->input->post('tipo_cal');
+    $txtrealizado = $this->input->post('txtrealizado');
 
-        $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 5, tipo_cal = '".$tipo_cal."', calibrado = 'SI' where id = ".$id);
-        $wo=$this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
+    // Marca el ítem como realizado (estatus 5), guarda tipo de calibración y marca como calibrado
+    $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 5, tipo_cal = '".$tipo_cal."', calibrado = 'SI' where id = ".$id);
 
-         $res=$this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
-        $datos['id_wo']=$res->WorkOrder_ID;
-        $datos['comentario']="Item Realizado #".$res->Item_Id." = ".$txtrealizado;
-        $datos['mail_us']=$this->session->correo;
+    // Obtiene detalles de la orden de trabajo para redireccionar
+    $wo = $this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
-         redirect(base_url('ordenes_trabajo/ver_wo/'.$wo->WorkOrder_ID));
-    }
-    function rechazar_item()
-    {
-        $id=$this->input->post('item');
-        $txtrechazar=$this->input->post('txtrechazar');
-        $motivo=$this->input->post('motivo');
-        $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 6, motivo = '".$motivo."', calibrado = 'NO', vencimiento = null, tipo_cal=null where id = ".$id);
-        $res=$this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
-        $datos['id_wo']=$res->WorkOrder_ID;
-        $datos['comentario']="Item No Realizado #".$res->Item_Id." = ".$txtrechazar;
-        $datos['mail_us']=$this->session->correo;
+    // Inserta comentario indicando que el ítem fue realizado
+    $res = $this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
+    $datos['id_wo'] = $res->WorkOrder_ID;
+    $datos['comentario'] = "Item Realizado #".$res->Item_Id." = ".$txtrealizado;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
-        $this->MLConexion->comando("UPDATE rsitems set FechaInWO = null, WOrder_ID = null where item_id = ".$res->Item_Id);
+    // Redirecciona a la vista de la orden de trabajo correspondiente
+    redirect(base_url('ordenes_trabajo/ver_wo/'.$wo->WorkOrder_ID));
+}
 
+function rechazar_item(){
+    $id = $this->input->post('item');
+    $txtrechazar = $this->input->post('txtrechazar');
+    $motivo = $this->input->post('motivo');
 
-        redirect(base_url('ordenes_trabajo/ver_wo/'.$res->WorkOrder_ID));
-    }
+    // Marca el ítem como no realizado (estatus 6), guarda motivo, desmarca calibración y limpia vencimiento
+    $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 6, motivo = '".$motivo."', calibrado = 'NO', vencimiento = null, tipo_cal=null where id = ".$id);
+
+    // Obtiene detalles del ítem rechazado para registrar comentario y limpieza en RS
+    $res = $this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
+    $datos['id_wo'] = $res->WorkOrder_ID;
+    $datos['comentario'] = "Item No Realizado #".$res->Item_Id." = ".$txtrechazar;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
+
+    // Limpia asignación del ítem en RS (se libera del WO)
+    $this->MLConexion->comando("UPDATE rsitems set FechaInWO = null, WOrder_ID = null where item_id = ".$res->Item_Id);
+
+    // Redirecciona nuevamente a la orden de trabajo para revisión
+    redirect(base_url('ordenes_trabajo/ver_wo/'.$res->WorkOrder_ID));
+}
+
     function fecha_vencimiento(){
-        $id=$this->input->post('itemFecha');
-        $vencimiento=$this->input->post('fecha');
-        $this->MLConexion->comando("UPDATE WO_Detail set vencimiento ='".$vencimiento."' where id = ".$id);
-        $wo=$this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
-         redirect(base_url('ordenes_trabajo/ver_wo/'.$wo->WorkOrder_ID));
+    $id = $this->input->post('itemFecha');
+    $vencimiento = $this->input->post('fecha');
 
-    }
-    function reprogramar()
-    {
-        $id=$this->input->post('itemR');
-        $txtreprogramar="REPROGRAMAR WO: ".$this->input->post('txtreprogramar');
-        $fecha=$this->input->post('txtFechaAccion');
-        $this->MLConexion->comando("UPDATE WO_Master set FProgramado = '".$fecha."', WorkOrder_Status = 2 where WorkOrder_ID = ".$id);
-        $datos['id_wo']=$id;
-        $datos['comentario']=$txtreprogramar;
-        $datos['mail_us']=$this->session->correo;
+    // Actualiza la fecha de vencimiento del ítem en la orden de trabajo
+    $this->MLConexion->comando("UPDATE WO_Detail set vencimiento ='".$vencimiento."' where id = ".$id);
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
-                redirect(base_url('ordenes_trabajo/ver_wo/'.$id));
+    // Consulta los datos del ítem para redirigir correctamente
+    $wo = $this->MLConexion->consultar("SELECT * from WO_Detail where id=".$id, true);
 
-    }
+    // Redirecciona a la vista correspondiente de la orden de trabajo
+    redirect(base_url('ordenes_trabajo/ver_wo/'.$wo->WorkOrder_ID));
+}
+
+function reprogramar(){
+    $id = $this->input->post('itemR');
+    $txtreprogramar = "REPROGRAMAR WO: ".$this->input->post('txtreprogramar');
+    $fecha = $this->input->post('txtFechaAccion');
+
+    // Reprograma la orden de trabajo con nueva fecha y cambia estatus a 2
+    $this->MLConexion->comando("UPDATE WO_Master set FProgramado = '".$fecha."', WorkOrder_Status = 2 where WorkOrder_ID = ".$id);
+
+    // Inserta comentario informando la reprogramación
+    $datos['id_wo'] = $id;
+    $datos['comentario'] = $txtreprogramar;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
+
+    // Redirecciona a la vista de la orden reprogramada
+    redirect(base_url('ordenes_trabajo/ver_wo/'.$id));
+}
+
     function conlcuir_wo()
-    {
-        $id=$this->input->post('itemConcluir');
-        $txtconcluir=$this->input->post('txtconcluir');
-        $foto = file_get_contents($_FILES['foto']['tmp_name']);
-        $name = $_FILES['foto']['name'];
-        $datos['id_wo']=$id;
-        $datos['comentario']="CONCLUIR WO: ".$txtconcluir;
-        $datos['mail_us']=$this->session->correo;
+{
+    $id = $this->input->post('itemConcluir');
+    $txtconcluir = $this->input->post('txtconcluir');
+    $foto = file_get_contents($_FILES['foto']['tmp_name']);
+    $name = $_FILES['foto']['name'];
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
+    // Registra el comentario de conclusión de WO
+    $datos['id_wo'] = $id;
+    $datos['comentario'] = "CONCLUIR WO: " . $txtconcluir;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
 
-        $this->load->library('correos');
-        $data = array(
-            'WorkOrder_Status' => 3,
-            'archivo' =>$foto,
-            'nombre_archivo' =>$name,
-                );
-      $where['WorkOrder_ID'] = $id;
+    // Actualiza el estatus de la orden de trabajo a 3 (Concluida) y guarda la foto
+    $this->load->library('correos');
+    $data = array(
+        'WorkOrder_Status' => 3,
+        'archivo' => $foto,
+        'nombre_archivo' => $name,
+    );
+    $where['WorkOrder_ID'] = $id;
+    $this->MLConexion->modificar('WO_Master', $data, null, $where);
 
-        $this->MLConexion->modificar('WO_Master', $data, null, $where );
-
-        $rs_items= $this->MLConexion->consultar("SELECT * from WO_Detail where WorkOrder_ID=".$id);
-
-        foreach ($rs_items as $key) {
-                if ($key->Item_Status != 6) {
-                    $this->MLConexion->comando("UPDATE rsitems SET FechaConcluidaWO =  CURRENT_TIMESTAMP() WHERE item_id = '".$key->Item_Id."'");
-                }
-                
-                
-            }
-
-
-
-        $res= $this->Conexion->consultar("SELECT u.id, u.correo, cj.correo as correo_jefe from usuarios u JOIN usuarios cj on cj.id=u.jefe_directo WHERE u.id=".$this->session->id, true);
-    
-        $mail['usuario']= $this->session->nombre;
-        $mail['items']=$this->MLConexion->consultar("SELECT wo.*, e.Status_Descripcion FROM WO_Detail wo JOIN tblStatusWO e on e.Status_ID=wo.Item_Status where wo.WorkOrder_ID = ".$id);
-        $mail['wo']=$id;
-        $correo = [];
-        $correos_a=$this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
-        foreach ($correos_a as $key => $value) {
-            array_push($correo, $value->correo);
+    // Marca la fecha de conclusión en los ítems que no fueron rechazados
+    $rs_items = $this->MLConexion->consultar("SELECT * from WO_Detail where WorkOrder_ID=" . $id);
+    foreach ($rs_items as $key) {
+        if ($key->Item_Status != 6) {
+            $this->MLConexion->comando("UPDATE rsitems SET FechaConcluidaWO = CURRENT_TIMESTAMP() WHERE item_id = '" . $key->Item_Id . "'");
         }
-         $mail['correos'] = array_merge(array($this->session->correo),$correo);
-        $this->correos->concluir_wo($mail);
-      redirect(base_url('ordenes_trabajo/ver_wo/'.$id));
-
     }
+
+    // Recupera correos del usuario actual y su jefe
+    $res = $this->Conexion->consultar("SELECT u.id, u.correo, cj.correo as correo_jefe from usuarios u JOIN usuarios cj on cj.id=u.jefe_directo WHERE u.id=" . $this->session->id, true);
+
+    // Prepara datos del correo de notificación de conclusión
+    $mail['usuario'] = $this->session->nombre;
+    $mail['items'] = $this->MLConexion->consultar("SELECT wo.*, e.Status_Descripcion FROM WO_Detail wo JOIN tblStatusWO e on e.Status_ID=wo.Item_Status where wo.WorkOrder_ID = " . $id);
+    $mail['wo'] = $id;
+
+    // Obtiene correos de los usuarios con permiso para cerrar WO
+    $correo = [];
+    $correos_a = $this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
+    foreach ($correos_a as $key => $value) {
+        array_push($correo, $value->correo);
+    }
+
+    // Agrega correo del usuario actual a la lista de destinatarios
+    $mail['correos'] = array_merge(array($this->session->correo), $correo);
+
+    // Envía el correo
+    $this->correos->concluir_wo($mail);
+
+    // Redirige a la vista de la orden concluida
+    redirect(base_url('ordenes_trabajo/ver_wo/' . $id));
+}
+
     function cancelar_wo()
-    {
+{
+    $id = $this->input->post('itemCancelarWO');
+    $txtcancelar = $this->input->post('txtcancelar');
 
-        $id=$this->input->post('itemCancelarWO');
-        $txtcancelar=$this->input->post('txtcancelar');
-        $datos['id_wo']=$id;
-        $datos['comentario']="CANCELAR WO: ".$txtcancelar;
-        $datos['mail_us']=$this->session->correo;
+    // Registra el comentario de cancelación de la WO
+    $datos['id_wo'] = $id;
+    $datos['comentario'] = "CANCELAR WO: " . $txtcancelar;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
-        
-        $this->load->library('correos');
-        $this->MLConexion->comando("UPDATE WO_Master set WorkOrder_Status = 7 where WorkOrder_ID = ".$id);
+    // Carga librería para enviar correos
+    $this->load->library('correos');
 
-        $res =  $this->MLConexion->consultar("SELECT * from WO_Detail where WorkOrder_ID = ".$id);
-        foreach ($res as $key) {
-        $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 6  where id = ".$key->id);    
-        $this->MLConexion->comando("UPDATE rsitems set FechaInWO = null, WOrder_ID=null where item_id = ".$key->Item_Id);    
-        }
-         
-        $mail['usuario']= $this->session->nombre;
-        $mail['wo']=$id;
-        
-        $correo = [];
-        $correos_a=$this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
-        foreach ($correos_a as $key => $value) {
-            array_push($correo, $value->correo);
-        }
-         $mail['correos'] = array_merge(array($this->session->correo),$correo);
-        $this->correos->cancelar_wo($mail);
+    // Actualiza el estatus de la orden a 7 (cancelada)
+    $this->MLConexion->comando("UPDATE WO_Master set WorkOrder_Status = 7 where WorkOrder_ID = " . $id);
 
-        
-        redirect(base_url('ordenes_trabajo/ver_wo/'.$id));
+    // Recorre los detalles de la WO para actualizar cada ítem como cancelado y limpiar su vínculo con rsitems
+    $res = $this->MLConexion->consultar("SELECT * from WO_Detail where WorkOrder_ID = " . $id);
+    foreach ($res as $key) {
+        $this->MLConexion->comando("UPDATE WO_Detail set Item_Status = 6 where id = " . $key->id);
+        $this->MLConexion->comando("UPDATE rsitems set FechaInWO = null, WOrder_ID = null where item_id = " . $key->Item_Id);
     }
+
+    // Prepara información para enviar correo de notificación de cancelación
+    $mail['usuario'] = $this->session->nombre;
+    $mail['wo'] = $id;
+    $correo = [];
+    $correos_a = $this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.cerrar_wo = 1 and U.activo = 1");
+    foreach ($correos_a as $key => $value) {
+        array_push($correo, $value->correo);
+    }
+    $mail['correos'] = array_merge(array($this->session->correo), $correo);
+    $this->correos->cancelar_wo($mail);
+
+    // Redirige al detalle de la WO cancelada
+    redirect(base_url('ordenes_trabajo/ver_wo/' . $id));
+}
+
     function cerrar_wo()
-    {
-        $this->load->library('correos');
-        $foto=null;
-        $id=$this->input->post('itemCerrar');
-        $txtcerrar="CERRAR WO: ".$this->input->post('txtcerrar');
-        $mail=$this->input->post('mail');
+{
+    $this->load->library('correos');
+    $foto = null;
+    $id = $this->input->post('itemCerrar');
+    $txtcerrar = "CERRAR WO: " . $this->input->post('txtcerrar');
+    $mail = $this->input->post('mail');
 
-        $datos['id_wo']=$id;
-        $datos['comentario']="CERRAR WO: ".$txtcerrar;
-        $datos['mail_us']=$this->session->correo;
+    // Registra el comentario de cierre en la bitácora de la WO
+    $datos['id_wo'] = $id;
+    $datos['comentario'] = "CERRAR WO: " . $txtcerrar;
+    $datos['mail_us'] = $this->session->correo;
+    $this->MLConexion->insertar('comentarios_wo', $datos);
 
-        $this->MLConexion->insertar('comentarios_wo', $datos);
-        
+    // Cambia el estatus de la WO a 'CERRADA' (estatus 4)
+    $this->MLConexion->comando("UPDATE WO_Master set WorkOrder_Status = 4 where WorkOrder_ID = " . $id);
 
-        $this->MLConexion->comando("UPDATE WO_Master set WorkOrder_Status = 4 where WorkOrder_ID = ".$id);    
-        
-        if ($mail == 1) {
-            $rs=$this->MLConexion->consultar("SELECT rs, archivo, nombre_archivo from WO_Master where WorkOrder_ID = ".$id, true);
+    // Si se debe enviar correo, prepara y envía con archivo adjunto
+    if ($mail == 1) {
+        $rs = $this->MLConexion->consultar("SELECT rs, archivo, nombre_archivo from WO_Master where WorkOrder_ID = " . $id, true);
+        $mail = $this->MLConexion->consultar("SELECT email from rsheaders where folio_id = " . $rs->rs, true);
 
-            $mail=$this->MLConexion->consultar("SELECT email from rsheaders where folio_id = ".$rs->rs, true);
-           
-            $ext=  strrchr( $rs->nombre_archivo, '.');
-            $fichero=sys_get_temp_dir(). '/'.$rs->rs.$ext;
-           
-            $foto= file_put_contents($fichero, $rs->archivo);
-            //echo var_dump($fichero);die();
-            $datos['correo']=$mail->email;
-            $datos['correo_us']=$this->session->correo;
-            $datos['foto']=$fichero;
-            $datos['usuario']= $this->session->nombre;
-            $datos['wo']=$id;
+        $ext = strrchr($rs->nombre_archivo, '.');
+        $fichero = sys_get_temp_dir() . '/' . $rs->rs . $ext;
+        $foto = file_put_contents($fichero, $rs->archivo);
 
-            $this->correos->cerrar_wo($datos);
+        $datos['correo'] = $mail->email;
+        $datos['correo_us'] = $this->session->correo;
+        $datos['foto'] = $fichero;
+        $datos['usuario'] = $this->session->nombre;
+        $datos['wo'] = $id;
 
-        }
-       
-      
-
-
-       redirect(base_url('ordenes_trabajo/ver_wo/'.$id));
+        $this->correos->cerrar_wo($datos);
     }
+
+    // Redirige a la vista de la WO correspondiente
+    redirect(base_url('ordenes_trabajo/ver_wo/' . $id));
+}
 
     function ajax_editSolicitud(){
+    $solicitud = json_decode($this->input->post('solicitud'));
+    $other = json_decode($this->input->post('other'));
 
-        $solicitud = json_decode($this->input->post('solicitud'));
-        $other = json_decode($this->input->post('other'));
-        //echo var_dump($solicitud);die();
-        if(isset($_FILES['f_A']))
-        {
-            $solicitud->f_acuse = file_get_contents($_FILES['f_A']['tmp_name']);
-        
-        }
-        if(isset($_FILES['f_F']))
-        {
-            $solicitud->f_factura = file_get_contents($_FILES['f_F']['tmp_name']);
-            $solicitud->name_factura = $this->input->post('f_F_name');
-            
-
-        }
-        if(isset($_FILES['f_X']))
-        {
-            $solicitud->f_xml = file_get_contents($_FILES['f_X']['tmp_name']);
-            $solicitud->name_xml = $this->input->post('f_X_name');
-            
-
-        }
-
-        $comentario = $this->input->post('comentario');
-
-        $res = $this->Conexion->modificar('solicitudes_facturas', $solicitud, null, array('id' => $solicitud->id));
-        if($solicitud->estatus_factura == "ACEPTADO")
-        {
-            
-            $this->load->model('MLConexion_model', 'MLConexion');
-            $this->MLConexion->comando("UPDATE rsitems set Factura = ifnull(Factura, $solicitud->folio) where Solicitud_ID = $solicitud->id;");
-            
-        }
-
-
-        if($res > 0)
-        {
-            if(isset($_POST['comentario']) && !empty($comentario))
-            {
-                $this->Conexion->insertar('solicitudes_facturas_comentarios', array('solicitud' => $solicitud->id, 'usuario' => $this->session->id, 'comentario' => $comentario), array('fecha' => 'CURRENT_TIMESTAMP()'));
-                $solicitud->comentario = $comentario;
-                
-            }
-
-            $correos = [];
-            $correos_a = $this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.responder_facturas = 1");
-            foreach ($correos_a as $key => $value) {
-                array_push($correos, $value->correo);
-            }
-            $solicitud->correos = array_merge(array($this->session->correo), $correos);
-            $solicitud->User = $other->User;
-            $solicitud->Client = $other->Client;
-            $solicitud->Contact = $other->Contact;
-            $mail['id']=$solicitud->id;
-            $mail['estatus_factura']=$solicitud->estatus_factura;
-            $mail['comentario']=$solicitud->comentario;
-            $mail['User']=$other->User;
-            $mail['Client']=$other->Client;
-            $mail['Contact']=$other->Contact;
-            $mail['correos']=array_merge(array($this->session->correo), $correos);
-            //echo var_dump($mail);die();
-
-            
-            $this->correos_facturacion->editar_solicitud($mail);
-            echo "1";
-        }
-        else
-        {
-            echo "";
-        }
+    // Verifica si se adjuntó el archivo de acuse y lo guarda como binario
+    if(isset($_FILES['f_A'])) {
+        $solicitud->f_acuse = file_get_contents($_FILES['f_A']['tmp_name']);
     }
+
+    // Verifica si se adjuntó el archivo de factura (PDF) y guarda su contenido y nombre
+    if(isset($_FILES['f_F'])) {
+        $solicitud->f_factura = file_get_contents($_FILES['f_F']['tmp_name']);
+        $solicitud->name_factura = $this->input->post('f_F_name');
+    }
+
+    // Verifica si se adjuntó el archivo XML y guarda su contenido y nombre
+    if(isset($_FILES['f_X'])) {
+        $solicitud->f_xml = file_get_contents($_FILES['f_X']['tmp_name']);
+        $solicitud->name_xml = $this->input->post('f_X_name');
+    }
+
+    $comentario = $this->input->post('comentario');
+
+    // Actualiza la solicitud de factura en la base de datos
+    $res = $this->Conexion->modificar('solicitudes_facturas', $solicitud, null, array('id' => $solicitud->id));
+
+    // Si la factura fue aceptada, actualiza el campo Factura en rsitems si está nulo
+    if($solicitud->estatus_factura == "ACEPTADO") {
+        $this->load->model('MLConexion_model', 'MLConexion');
+        $this->MLConexion->comando("UPDATE rsitems set Factura = ifnull(Factura, $solicitud->folio) where Solicitud_ID = $solicitud->id;");
+    }
+
+    if($res > 0) {
+        // Si se agregó un comentario, lo guarda en la tabla de comentarios con marca de tiempo
+        if(isset($_POST['comentario']) && !empty($comentario)) {
+            $this->Conexion->insertar('solicitudes_facturas_comentarios', array('solicitud' => $solicitud->id, 'usuario' => $this->session->id, 'comentario' => $comentario), array('fecha' => 'CURRENT_TIMESTAMP()'));
+            $solicitud->comentario = $comentario;
+        }
+
+        // Obtiene los correos de usuarios con permiso para responder facturas
+        $correos = [];
+        $correos_a = $this->Conexion->consultar("SELECT U.correo from privilegios P inner join usuarios U on P.usuario = U.id where P.responder_facturas = 1");
+        foreach ($correos_a as $key => $value) {
+            array_push($correos, $value->correo);
+        }
+
+        // Prepara los datos para el correo de notificación
+        $solicitud->correos = array_merge(array($this->session->correo), $correos);
+        $solicitud->User = $other->User;
+        $solicitud->Client = $other->Client;
+        $solicitud->Contact = $other->Contact;
+
+        $mail['id'] = $solicitud->id;
+        $mail['estatus_factura'] = $solicitud->estatus_factura;
+        $mail['comentario'] = $solicitud->comentario;
+        $mail['User'] = $other->User;
+        $mail['Client'] = $other->Client;
+        $mail['Contact'] = $other->Contact;
+        $mail['correos'] = array_merge(array($this->session->correo), $correos);
+
+        // Envía correo notificando la edición de la solicitud
+        $this->correos_facturacion->editar_solicitud($mail);
+        echo "1";
+    } else {
+        echo "";
+    }
+}
 
     function ajax_getReporteServicios(){
+    $this->load->model('MLConexion_model', 'MLConexion');
 
-        $this->load->model('MLConexion_model', 'MLConexion');
+    $texto = $this->input->post('texto');
+    $rs = $this->input->post('rs');
 
-        $texto = $this->input->post('texto');
-        $rs = $this->input->post('rs');
+    // Consulta para obtener todos los ítems de un RS (con condiciones)
+    $query = "SELECT rsitems.folio_id, rsitems.descripcion, rsn.Notas, concat(rsitems.descripcion, if(isnull(rsitems.Fabricante), '', concat(' ', rsitems.Fabricante)), if(isnull(rsitems.Modelo), '', concat(' ', rsitems.Modelo)), if(isnull(rsitems.Serie), '', concat(' Serie: ', rsitems.Serie)), if(isnull(rsitems.Equipo_ID), '', concat(' ID: ', rsitems.Equipo_ID))) as CadenaDescripcion, rsitems.item_id, rsitems.fechaCancelado, rsitems.inWork, rsitems.tecnico_id, rsitems.fechaActEQ, rsitems.WOrder_ID, catalogo_tecnicos.email_tecnico FROM rsitems INNER JOIN catalogo_tecnicos ON rsitems.tecnico_id = catalogo_tecnicos.Tecnico_Id join rsheadersnotas rsn on rsn.Folio_ID=rsitems.folio_id WHERE (((rsitems.folio_id)='".$rs."') AND ((rsitems.fechaCancelado) Is Null) AND ((rsitems.inWork)=0) AND ((rsitems.fechaActEQ) Is Null) AND ((rsitems.WOrder_ID) Is Null) AND ((catalogo_tecnicos.email_tecnico)= '".$this->session->correo."'))";
 
-        $query = "SELECT rsitems.folio_id, rsitems.descripcion,rsn.Notas, concat(rsitems.descripcion, if(isnull(rsitems.Fabricante), '', concat(' ', rsitems.Fabricante)), if(isnull(rsitems.Modelo), '', concat(' ', rsitems.Modelo)), if(isnull(rsitems.Serie), '', concat(' Serie: ', rsitems.Serie)), if(isnull(rsitems.Equipo_ID), '', concat(' ID: ', rsitems.Equipo_ID))) as CadenaDescripcion, rsitems.item_id, rsitems.fechaCancelado, rsitems.inWork, rsitems.tecnico_id, rsitems.fechaActEQ, rsitems.WOrder_ID, catalogo_tecnicos.email_tecnico FROM rsitems INNER JOIN catalogo_tecnicos ON rsitems.tecnico_id = catalogo_tecnicos.Tecnico_Id join rsheadersnotas rsn on rsn.Folio_ID=rsitems.folio_id WHERE (((rsitems.folio_id)='".$rs."') AND ((rsitems.fechaCancelado) Is Null) AND ((rsitems.inWork)=0) AND ((rsitems.fechaActEQ) Is Null) AND ((rsitems.WOrder_ID) Is Null) AND ((catalogo_tecnicos.email_tecnico)= '".$this->session->correo."'))";
-     
-        if($texto)
-        {
-            $query .= " having CadenaDescripcion like '%$texto%'";
-        }
-        $res = $this->MLConexion->Consultar($query);
-
-        if($res){
-            echo json_encode($res);
-        }
+    // Si se proporciona un texto, se aplica un filtro adicional sobre la cadena descriptiva
+    if($texto) {
+        $query .= " having CadenaDescripcion like '%$texto%'";
     }
 
-    function ajax_getRSItems(){
-        $id_factura = $this->input->post('id_factura');
-        $res = $this->Conexion->Consultar("SELECT * from rsitems_facturas where id_factura = $id_factura");
-        if($res){
-            echo json_encode($res);
-        }
-    }
+    $res = $this->MLConexion->Consultar($query);
 
+    // Devuelve los resultados en formato JSON si existen
+    if($res){
+        echo json_encode($res);
+    }
+}
+
+function ajax_getRSItems(){
+    $id_factura = $this->input->post('id_factura');
+
+    // Consulta para obtener los ítems asociados a una factura específica
+    $res = $this->Conexion->Consultar("SELECT * from rsitems_facturas where id_factura = $id_factura");
+
+    // Devuelve los resultados en formato JSON si existen
+    if($res){
+        echo json_encode($res);
+    }
+}
 
     function ajax_setComentarios(){
-        $comentario = json_decode($this->input->post('comentario'));
+    // Decodifica el comentario recibido vía POST en formato JSON
+    $comentario = json_decode($this->input->post('comentario'));
         $comentario->mail_us = $this->session->correo;
-        $funciones = array('fecha' => 'CURRENT_TIMESTAMP()');
-        
+    $funciones = array('fecha' => 'CURRENT_TIMESTAMP()');
+    $res = $this->MLConexion->insertar('comentarios_wo', $comentario, $funciones);
 
-        $res = $this->MLConexion->insertar('comentarios_wo', $comentario, $funciones);
-        if($res > 0)
-        {
-            echo "1";
-        }
-        else
-        {
-            echo "";
-        }
+    // Devuelve "1" si la operación fue exitosa, vacío si falló
+    if($res > 0) {
+        echo "1";
+    } else {
+        echo "";
+    }
+}
 
+function ajax_getComentarios(){
+    $id = $this->input->post('id');
 
+    // Consulta los comentarios de la orden de trabajo junto al nombre del técnico
+    $query = "SELECT cm.*, ct.nombre FROM comentarios_wo cm JOIN catalogo_tecnicos ct on cm.mail_us=ct.email_tecnico where 1 = 1";
+
+    // Si se recibe un ID de orden de trabajo, se filtra por él
+    if($id) {
+        $query .= " and cm.id_wo = '$id'";
     }
 
-    function ajax_getComentarios(){
-        $id = $this->input->post('id');
+    $res = $this->MLConexion->consultar($query);
 
-        $query = "SELECT cm.*, ct.nombre FROM comentarios_wo cm JOIN catalogo_tecnicos ct on cm.mail_us=ct.email_tecnico where 1 = 1";
-
-        if($id)
-        {
-            $query .= " and cm.id_wo = '$id'";
-        }
-        $res = $this->MLConexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else
-        {
-            echo "";
-        }
-
-
+    // Devuelve los resultados en formato JSON si existen, vacío en caso contrario
+    if($res) {
+        echo json_encode($res);
+    } else {
+        echo "";
     }
+}
 
     function ajax_getRequisitores(){
         $id = $this->input->post('id');
@@ -576,48 +610,35 @@ class ordenes_trabajo extends CI_Controller {
     }
 
     function archivo_impresion(){
-//        ini_set('display_errors', 0);
-
-//        $this->load->library('merger');
-       // echo var_dump(base_url("application/libraries"));die();
-//        require_once (base_url()."PDFMerger/PDFMerger.php');
-
-//use PDFMerger\PDFMerger;
-//$pdf = new PDFMerger;
-
-
-$pdf = new PDFMerger;
-ob_start();
-  error_reporting(E_ALL & ~E_NOTICE);
-  ini_set('display_errors', 0);
-  ini_set('log_errors', 1);
-  /* ...
-   Resto del código que genera el PDF
+    $pdf = new PDFMerger;
+    ob_start();
+    error_reporting(E_ALL & ~E_NOTICE);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    /* ...
+    Resto del código que genera el PDF
      ... */
-  /* Limpiamos la salida del búfer y lo desactivamos */
-  ob_end_clean();
+    /* Limpiamos la salida del búfer y lo desactivamos */
+     ob_end_clean();
         $id = $this->input->post('id');
         $codigo = $this->input->post('codigo');
         
                          ob_start();
-  error_reporting(E_ALL & ~E_NOTICE);
-  ini_set('display_errors', 0);
-  ini_set('log_errors', 1);
-  /* ...
-   Resto del código que genera el PDF
-     ... */
-  /* Limpiamos la salida del búfer y lo desactivamos */
+    error_reporting(E_ALL & ~E_NOTICE);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    /* ...
+    Resto del código que genera el PDF
+    ... */
+    /* Limpiamos la salida del búfer y lo desactivamos */
   
-
-
-        $pdf = new PDFMerger();
-
-        $q="SELECT SF.* from solicitudes_facturas SF where SF.id = $id";
-        //echo $q;die();
-        $res = $this->Conexion->consultar($q, TRUE);
-
+    $pdf = new PDFMerger();
+    $q="SELECT SF.* from solicitudes_facturas SF where SF.id = $id";
+    $res = $this->Conexion->consultar($q, TRUE);
 
         for ($i=0; $i < strlen($codigo); $i++) { 
+        // Determina el tipo de documento según el carácter leído
+
             switch (strtoupper($codigo[$i])) {
                 
                 case 'F':
@@ -649,33 +670,28 @@ ob_start();
                     break;
             }
 
-            
-            if($campo != null)
-            {
-                if(substr($campo, 0, 2 ) == "f_")
-                {
+        // Si se reconoció un campo válido
+        if($campo != null) {
 
-                    $file = $res->$campo; 
+        // Si es un archivo binario guardado en base de datos (prefijo "f_")
+        if(substr($campo, 0, 2 ) == "f_") {
 
-                    $fichero = sys_get_temp_dir(). '/' . $campo . '.pdf';
-                    file_put_contents($fichero, $file);
-                   
-                    $pdf->addPDF($fichero, 'all');
-                }
-                else
-                {
-                    $fichero = "data/empresas/documentos_globales/" . $campo . "_000001.pdf";
-                    $pdf->addPDF($fichero, 'all');
-                }
-            }
+            $file = $res->$campo; // Recupera archivo desde el objeto
+            $fichero = sys_get_temp_dir(). '/' . $campo . '.pdf'; // Ruta temporal
+            file_put_contents($fichero, $file); // Escribe archivo temporal
+            $pdf->addPDF($fichero, 'all'); // Agrega PDF generado al combinador
+
+        } else {
+
+            // Si es archivo precargado del sistema de archivos
+            $fichero = "data/empresas/documentos_globales/" . $campo . "_000001.pdf";
+            $pdf->addPDF($fichero, 'all'); // Agrega PDF externo
         }
-        
+    }
+}
 
-ob_end_clean();
-       $pdf->merge('browser');
-//        $pdfM->Output();
-       
-        
+    ob_end_clean();
+       $pdf->merge('browser');       
     }
 
     function ajax_getClientes(){
@@ -694,67 +710,92 @@ ob_end_clean();
     }
 
     function ajax_getClientesSolicitudes(){
-        $texto = $this->input->post('texto');
-        
-        $query = "SELECT E.id, E.nombre, count(S.id) as NumSol from solicitudes_facturas S inner join empresas E on E.id = S.cliente";
+    $texto = $this->input->post('texto');
 
-        if($texto)
-        {
-            $query .= " where E.nombre like '%$texto%'";
-        }
-        $query .= " group by E.id;";
+    // Consulta para obtener clientes y cantidad de solicitudes asociadas
+    $query = "SELECT E.id, E.nombre, count(S.id) as NumSol from solicitudes_facturas S inner join empresas E on E.id = S.cliente";
 
-        $res = $this->Conexion->consultar($query);
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Aplica filtro si se ingresó texto de búsqueda
+    if($texto)
+    {
+        $query .= " where E.nombre like '%$texto%'";
     }
 
-    function ajax_getEjecutivosSolicitudes(){
-        $texto = $this->input->post('texto');
-        
-        $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Ejecutivo, count(S.id) as NumSol from solicitudes_facturas S inner join usuarios U on U.id = S.ejecutivo";
+    // Agrupa por ID de empresa para contar solicitudes
+    $query .= " group by E.id;";
 
-        if($texto)
-        {
-            $query .= " where concat(U.nombre, ' ', U.paterno) like '%$texto%'";
-        }
-        $query .= " group by U.id;";
+    $res = $this->Conexion->consultar($query);
 
-        $res = $this->Conexion->consultar($query);
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    if($res)
+    {
+        echo json_encode($res); // Devuelve los resultados en formato JSON
     }
+}
+
+function ajax_getEjecutivosSolicitudes(){
+    $texto = $this->input->post('texto');
+
+    // Consulta para obtener ejecutivos y cantidad de solicitudes que gestionaron
+    $query = "SELECT U.id, concat(U.nombre, ' ', U.paterno) as Ejecutivo, count(S.id) as NumSol from solicitudes_facturas S inner join usuarios U on U.id = S.ejecutivo";
+
+    // Aplica filtro por nombre si se proporcionó
+    if($texto)
+    {
+        $query .= " where concat(U.nombre, ' ', U.paterno) like '%$texto%'";
+    }
+
+    // Agrupa por ID de usuario para contar solicitudes
+    $query .= " group by U.id;";
+
+    $res = $this->Conexion->consultar($query);
+
+    if($res)
+    {
+        echo json_encode($res); // Devuelve los resultados en formato JSON
+    }
+}
 
     function ajax_getDocumentosGlobales(){
-        
-        $query = "SELECT id, opinion_positiva, emision_sua from documentos_globales where id = 1";
+    // Consulta los documentos globales registrados (solo uno, con id = 1)
+    $query = "SELECT id, opinion_positiva, emision_sua from documentos_globales where id = 1";
 
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-        else
-        {
-            echo "";
-        }
+    $res = $this->Conexion->consultar($query);
+    if($res)
+    {
+        echo json_encode($res); // Devuelve los resultados en formato JSON
     }
-
-    function ajax_filesExists($id){
-        $this->load->helper('file');
-
-        $id = str_pad($id, 6, "0", STR_PAD_LEFT);
-        $acuse = read_file(base_url("data/empresas/documentos_facturacion/ACUSE_" . $id . ".pdf")) ? "1" : "0";
-        $emision = read_file(base_url("data/empresas/documentos_facturacion/EMISION_" . $id . ".pdf")) ? "1" : "0";
-
-        echo json_encode(array($acuse, $emision));
+    else
+    {
+        echo ""; // Respuesta vacía si no hay datos
     }
+}
+
+function ajax_filesExists($id){
+    $this->load->helper('file'); // Carga helper para funciones de archivos
+
+    // Rellena con ceros a la izquierda para obtener un ID de 6 dígitos
+    $id = str_pad($id, 6, "0", STR_PAD_LEFT);
+
+    // Verifica si existen los archivos PDF de acuse y emisión para la empresa
+    $acuse = read_file(base_url("data/empresas/documentos_facturacion/ACUSE_" . $id . ".pdf")) ? "1" : "0";
+    $emision = read_file(base_url("data/empresas/documentos_facturacion/EMISION_" . $id . ".pdf")) ? "1" : "0";
+
+    // Devuelve un arreglo indicando si cada archivo existe ("1") o no ("0")
+    echo json_encode(array($acuse, $emision));
+}
+
+
+
+
+
+
+
+
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+//////////////////////////////////////////////
+//////////////////////////////////////////////
 
     function ajax_readXML(){
         $dom = new DomDocument;
