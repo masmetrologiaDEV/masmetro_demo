@@ -784,359 +784,376 @@ function ajax_filesExists($id){
     echo json_encode(array($acuse, $emision));
 }
 
-
-
-
-
-
-
-
-//////////////////////////////////////////////
-//////////////////////////////////////////////
-//////////////////////////////////////////////
-//////////////////////////////////////////////
-//////////////////////////////////////////////
-
     function ajax_readXML(){
-        $dom = new DomDocument;
-        $dom->preserveWhiteSpace = FALSE;
-        $dom->loadXML(file_get_contents($_FILES['f_X']['tmp_name']));
-      //$dom->loadXML(file_get_contents(base_url('data/1.xml')));
-        $comp = $dom->getElementsByTagName('Comprobante');
-        $ext = 1;
-        $data = array();
-        foreach ($comp[0]->attributes as $elem)
+    // Crea una instancia del objeto DOMDocument para leer el XML
+    $dom = new DomDocument;
+    $dom->preserveWhiteSpace = FALSE;
+
+    // Carga el contenido del archivo XML subido
+    $dom->loadXML(file_get_contents($_FILES['f_X']['tmp_name']));
+
+    // Obtiene el nodo <Comprobante> del XML
+    $comp = $dom->getElementsByTagName('Comprobante');
+    $ext = 1; // Bandera para validar si el folio ya existe
+    $data = array(); // Arreglo para guardar los datos extraídos del XML
+
+    // Recorre los atributos del nodo <Comprobante>
+    foreach ($comp[0]->attributes as $elem)
+    {
+        // Si el atributo es Serie, Folio o SubTotal, lo guarda en $data
+        if($elem->name == "Serie" | $elem->name == "Folio" | $elem->name == "SubTotal")
         {
-            if($elem->name == "Serie" | $elem->name == "Folio" | $elem->name == "SubTotal")
-            {
-                $e = array($elem->name => $elem->value);
-                array_push($data, $e);
-            }
-
-
-            if($elem->name == "Folio")
-            {
-                $folio = $elem->value;
-
-                $res = $this->Conexion->consultar("SELECT count(*) as existe FROM solicitudes_facturas where folio = '$folio'", TRUE);
-                $ext = $res->existe;
-            }
-
-            
+            $e = array($elem->name => $elem->value);
+            array_push($data, $e);
         }
 
-        if($ext == 0)
+        // Si el atributo es Folio, verifica si ya existe una solicitud con ese folio
+        if($elem->name == "Folio")
         {
-            echo json_encode($data);
+            $folio = $elem->value;
+            $res = $this->Conexion->consultar("SELECT count(*) as existe FROM solicitudes_facturas where folio = '$folio'", TRUE);
+            $ext = $res->existe;
         }
-        else
-        {
-            echo "0";
-        }
-        
     }
+
+    // Si el folio no existe en la base de datos, devuelve los datos del XML
+    if($ext == 0)
+    {
+        echo json_encode($data);
+    }
+    else
+    {
+        // Si el folio ya existe, retorna "0" indicando duplicado
+        echo "0";
+    }
+}
 
     function ajax_setDocumentoFacturacion(){
-        $file = $this->input->post('file');
-        $documento = $this->input->post('documento');
-        $id = $this->input->post('empresa');
-        $id = str_pad($id, 6, "0", STR_PAD_LEFT);
-        
-        if($file != "undefined")
-        {
-            $config['upload_path'] = 'data/empresas/documentos_facturacion/';
-            $config['allowed_types'] = 'pdf';
-            $config['overwrite'] = TRUE;
-            $config['file_name'] = $documento . '_' . $id;
-            $this->load->library('upload', $config);
+    $file = $this->input->post('file');
+    $documento = $this->input->post('documento');
+    $id = $this->input->post('empresa');
+    $id = str_pad($id, 6, "0", STR_PAD_LEFT); // Completa el ID a 6 dígitos con ceros a la izquierda
 
-            if ($this->upload->do_upload('file'))
+    if($file != "undefined")
+    {
+        // Configura la carga del archivo PDF
+        $config['upload_path'] = 'data/empresas/documentos_facturacion/';
+        $config['allowed_types'] = 'pdf';
+        $config['overwrite'] = TRUE;
+        $config['file_name'] = $documento . '_' . $id;
+
+        $this->load->library('upload', $config);
+
+        // Intenta subir el archivo
+        if ($this->upload->do_upload('file'))
+        {
+            $where['id'] = $id;
+
+            // Asigna el campo correspondiente según el tipo de documento
+            switch($documento)
             {
-                $where['id'] = $id;
-                switch($documento)
-                {
-                    case "EMISION":
+                case "EMISION":
                     $campo = "emision_sua";
                     break;
-                    
-                    case "OPINION":
+                case "OPINION":
                     $campo = "opinion_positiva";
                     break;
-                }
-                $data[$campo] = $this->upload->data('file_name');
-                $this->Conexion->modificar('empresas', $data, null, $where);
-                echo "1";
-            } 
+            }
+
+            // Guarda el nombre del archivo en la base de datos
+            $data[$campo] = $this->upload->data('file_name');
+            $this->Conexion->modificar('empresas', $data, null, $where);
+            echo "1"; // Indica éxito al frontend
         }
     }
+}
 
     function ajax_deleteDocumentoFacturacion(){
-        $documento = $this->input->post('documento');
-        $id = $this->input->post('empresa');
-        $id = str_pad($id, 6, "0", STR_PAD_LEFT);
-        unlink('data/empresas/documentos_facturacion/' . $documento . '_' . $id . '.pdf');
+    $documento = $this->input->post('documento');
+    $id = $this->input->post('empresa');
+    $id = str_pad($id, 6, "0", STR_PAD_LEFT); // Asegura que el ID tenga 6 dígitos
 
-        $where['id'] = $id;
-        switch($documento)
-        {
-            case "EMISION":
+    // Elimina físicamente el archivo PDF correspondiente
+    unlink('data/empresas/documentos_facturacion/' . $documento . '_' . $id . '.pdf');
+
+    // Determina el campo que se debe actualizar como vacío
+    $where['id'] = $id;
+    switch($documento)
+    {
+        case "EMISION":
             $campo = "emision_sua";
             break;
-            
-            case "OPINION":
+        case "OPINION":
             $campo = "opinion_positiva";
             break;
-        }
-        $data[$campo] = "";
-        $this->Conexion->modificar('empresas', $data, null, $where);
     }
 
-    function ajax_setDocumentoGlobal(){
-        $file = $this->input->post('file');
-        $documento = $this->input->post('documento');
-        $id = $this->input->post('empresa');
-        $id = str_pad($id, 6, "0", STR_PAD_LEFT);
-        
-        if($file != "undefined")
-        {
-            $config['upload_path'] = 'data/empresas/documentos_globales/';
-            $config['allowed_types'] = 'pdf';
-            $config['overwrite'] = TRUE;
-            $config['file_name'] = $documento . '_' . $id;
-            $this->load->library('upload', $config);
+    // Actualiza el campo a vacío en la base de datos
+    $data[$campo] = "";
+    $this->Conexion->modificar('empresas', $data, null, $where);
+}
 
-            if ($this->upload->do_upload('file'))
+function ajax_setDocumentoGlobal(){
+    $file = $this->input->post('file');
+    $documento = $this->input->post('documento');
+    $id = $this->input->post('empresa');
+    $id = str_pad($id, 6, "0", STR_PAD_LEFT); // Asegura que el ID tenga 6 dígitos
+
+    if($file != "undefined")
+    {
+        // Configuración de la subida del archivo
+        $config['upload_path'] = 'data/empresas/documentos_globales/';
+        $config['allowed_types'] = 'pdf';
+        $config['overwrite'] = TRUE;
+        $config['file_name'] = $documento . '_' . $id;
+
+        $this->load->library('upload', $config);
+
+        // Intenta subir el archivo
+        if ($this->upload->do_upload('file'))
+        {
+            $where['id'] = $id;
+
+            // Determina el campo que se debe actualizar
+            switch($documento)
             {
-                $where['id'] = $id;
-                switch($documento)
-                {
-                    case "EMISION":
+                case "EMISION":
                     $campo = "emision_sua";
                     break;
-                    
-                    case "OPINION":
+                case "OPINION":
                     $campo = "opinion_positiva";
                     break;
-                }
-                $data[$campo] = $this->upload->data('file_name');
-                $this->Conexion->modificar('documentos_globales', $data, null, $where);
-                echo "1";
-            } 
+            }
+
+            // Guarda el nombre del archivo en la base de datos
+            $data[$campo] = $this->upload->data('file_name');
+            $this->Conexion->modificar('documentos_globales', $data, null, $where);
+            echo "1"; // Notifica éxito al frontend
         }
     }
+}
 
     function ajax_deleteDocumentoGlobal(){
-        $documento = $this->input->post('documento');
-        $id = $this->input->post('empresa');
-        $id = str_pad($id, 6, "0", STR_PAD_LEFT);
-        unlink('data/empresas/documentos_globales/' . $documento . '_' . $id . '.pdf');
+    $documento = $this->input->post('documento');
+    $id = $this->input->post('empresa');
+    $id = str_pad($id, 6, "0", STR_PAD_LEFT); // Asegura que el ID tenga 6 dígitos con ceros a la izquierda
 
-        $where['id'] = $id;
-        switch($documento)
-        {
-            case "EMISION":
+    // Elimina físicamente el archivo PDF correspondiente del sistema de archivos
+    unlink('data/empresas/documentos_globales/' . $documento . '_' . $id . '.pdf');
+
+    // Determina el campo correspondiente que se debe actualizar como vacío en la base de datos
+    $where['id'] = $id;
+    switch($documento)
+    {
+        case "EMISION":
             $campo = "emision_sua";
             break;
-            
-            case "OPINION":
+        case "OPINION":
             $campo = "opinion_positiva";
             break;
-        }
-        $data[$campo] = "";
-        $this->Conexion->modificar('documentos_globales', $data, null, $where);
     }
+
+    // Limpia el campo en la base de datos que hacía referencia al archivo eliminado
+    $data[$campo] = "";
+    $this->Conexion->modificar('documentos_globales', $data, null, $where);
+}
 
     function ajax_enviarCorreo(){
-        $id = $this->input->post('id');
-        $body = $this->input->post('body');
-        $subject = $this->input->post('subject');
-        $para = $this->input->post('para');
-        $cc = $this->input->post('cc');
-        
-        $campos = json_decode($this->input->post('campos'));
+    $id = $this->input->post('id');
+    $body = $this->input->post('body');
+    $subject = $this->input->post('subject');
+    $para = $this->input->post('para');
+    $cc = $this->input->post('cc');
+    
+    $campos = json_decode($this->input->post('campos'));
 
-        $archivos = [];
-        $res = $this->Conexion->consultar("SELECT SF.* from solicitudes_facturas SF where SF.id = $id", TRUE);
-        foreach ($campos as $value) {
-            if(substr($value, 0, 2 ) == "f_")
-            {
-                $file = $res->$value;
-                $fichero = sys_get_temp_dir(). '/' . $value . ($value == "f_xml" ? '.xml' : '.pdf');
-                file_put_contents($fichero, $file);
-            }
-            else
-            {
-                switch ($value) {
-                    case 'opinion_positiva':
-                        $value = 'OPINION';
-                        break;
-                    
-                    case 'emision_sua':
-                        $value = 'EMISION';
-                        break;
-                }
-                $fichero = "data/empresas/documentos_globales/" . $value . "_000001.pdf";
-            }
+    $archivos = [];
 
-            array_push($archivos, $fichero);
+    // Obtiene los datos de la solicitud de factura por ID
+    $res = $this->Conexion->consultar("SELECT SF.* from solicitudes_facturas SF where SF.id = $id", TRUE);
+
+    foreach ($campos as $value) {
+        // Si el campo es un archivo binario de la tabla (f_pdf, f_xml, etc.)
+        if(substr($value, 0, 2 ) == "f_") {
+            $file = $res->$value;
+            $fichero = sys_get_temp_dir(). '/' . $value . ($value == "f_xml" ? '.xml' : '.pdf');
+            file_put_contents($fichero, $file); // Guarda el archivo temporalmente
+        } else {
+            // Para documentos globales con nombres codificados
+            switch ($value) {
+                case 'opinion_positiva':
+                    $value = 'OPINION';
+                    break;
+                case 'emision_sua':
+                    $value = 'EMISION';
+                    break;
+            }
+            $fichero = "data/empresas/documentos_globales/" . $value . "_000001.pdf";
         }
 
-        $datos['id'] = $id;
-        $datos['para'] = $para;
-        $datos['cc'] = $cc;
-        $datos['subject'] = $subject;
-        $datos['body'] = $body;
-        $datos['campos'] = $campos;
-        $datos['archivos'] = $archivos;
-        $this->correos_facturacion->enviarCorreo($datos);
-
+        array_push($archivos, $fichero); // Añade el archivo al array de adjuntos
     }
+
+    // Prepara el array con todos los datos del correo
+    $datos['id'] = $id;
+    $datos['para'] = $para;
+    $datos['cc'] = $cc;
+    $datos['subject'] = $subject;
+    $datos['body'] = $body;
+    $datos['campos'] = $campos;
+    $datos['archivos'] = $archivos;
+
+    // Llama a la librería de envío de correos
+    $this->correos_facturacion->enviarCorreo($datos);
+}
 
     ////////////////////////////////// F A C T U R A S //////////////////////////////////
+function ajax_getFacturas(){
+    $id = $this->input->post('id');
 
-    function ajax_getFacturas(){
-        $id = $this->input->post('id');
+    // Consulta principal para obtener detalles de las facturas aceptadas
+    $query = "SELECT F.id, F.fecha, F.usuario, F.cliente, F.contacto, F.reporte_servicio, F.orden_compra, F.forma_pago, F.pagada, F.conceptos, F.notas, F.estatus_factura, F.documentos_requeridos, F.serie, F.folio, F.codigo_impresion, (SELECT count(id) from recorrido_conceptos where id_concepto = F.id and tipo = 'FACTURA') as Recorridos, (SELECT count(id) from envios_factura where factura = F.id) as Envios, E.nombre as Cliente, concat(U.nombre, ' ', U.paterno) as User, U.correo, ifnull(EC.correo, 'N/A') as CorreoContacto from solicitudes_facturas F inner join empresas E on E.id = F.cliente inner join usuarios U on U.id = F.usuario left join empresas_contactos EC on EC.id = F.contacto";
+    $query .= " where F.folio > 0 and F.estatus = 'ACEPTADO'";
 
-        $query = "SELECT F.id, F.fecha, F.usuario, F.cliente, F.contacto, F.reporte_servicio, F.orden_compra, F.forma_pago, F.pagada, F.conceptos, F.notas, F.estatus_factura, F.documentos_requeridos, F.serie, F.folio, F.codigo_impresion, (SELECT count(id) from recorrido_conceptos where id_concepto = F.id and tipo = 'FACTURA') as Recorridos, (SELECT count(id) from envios_factura where factura = F.id) as Envios, E.nombre as Cliente, concat(U.nombre, ' ', U.paterno) as User, U.correo, ifnull(EC.correo, 'N/A') as CorreoContacto from solicitudes_facturas F inner join empresas E on E.id = F.cliente inner join usuarios U on U.id = F.usuario left join empresas_contactos EC on EC.id = F.contacto";
-        $query .= " where F.folio > 0 and F.estatus = 'ACEPTADO'";
-
-        if($id)
-        {
-            $query .= " and F.id = '$id'";
-        }
-        
-        if(isset($_POST['estatus']))
-        {
-            $estatus = $this->input->post('estatus');
-            $query .= " and F.estatus = '$estatus'";
-        }
-
-        $res = $this->Conexion->consultar($query, $id);
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    // Filtra por ID si se proporciona
+    if($id) {
+        $query .= " and F.id = '$id'";
     }
 
-
-    ////////////////////////////////// L O G I S T I C A //////////////////////////////////
-    function ajax_getMensajeros(){
-        $query = "SELECT U.id, U.nombre, U.paterno, U.materno, U.no_empleado, U.puesto, U.correo, U.ultima_sesion, U.departamento, U.activo, U.jefe_directo, U.autorizador_compras, U.autorizador_compras_venta, concat(U.nombre, ' ', U.paterno) as User, concat(U.nombre, ' ', U.paterno, ' ', U.materno) as CompleteName from usuarios U inner join privilegios P on P.usuario = U.id where U.activo = '1'";// having Name like '%$texto%'";
-        $query .= " and P.mensajero = '1'";
-        $query .= " order by User";
-        
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-
+    // Filtro adicional opcional por estatus
+    if(isset($_POST['estatus'])) {
+        $estatus = $this->input->post('estatus');
+        $query .= " and F.estatus = '$estatus'";
     }
 
-    function ajax_setRecorrido(){
-        $mensajero = $this->input->post('mensajero');
-        $fecha = $this->input->post('fecha');
-        $recorrido = json_decode($this->input->post('recorrido'));
-
-        $data['mensajero'] = $mensajero;
-        $data['fecha_recorrido'] = $fecha;
-        $recorrido_id = $this->Conexion->insertar('recorridos', $data);
-
-        foreach ($recorrido as $value) {
-            $data2['recorrido'] = $recorrido_id;
-            $data2['factura'] = $value[1];
-            $data2['accion'] = $value[0];
-            $data2['estatus'] = "EN RECORRIDO";
-
-            $this->Conexion->insertar('recorrido_conceptos', $data2);
-            $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $data2['estatus']), null, array('id' => $data2['factura']));
-        }
-        
-    }
-
-    function ajax_getRecorridos(){
-        $pendientes = $this->input->post('pendientes');
-        $factura = $this->input->post('factura');
-
-        $query = "SELECT RF.*, R.mensajero, R.fecha_recorrido, (SELECT count(RC.id) from recorrido_comentarios RC where RC.recorrido_factura = RF.id) as Comentarios, (SELECT count(RF2.id) from recorrido_facturas RF2 where RF2.recorrido = RF.recorrido and RF2.estatus = 'EN RECORRIDO') as Pendientes, (SELECT E.nombre from solicitudes_facturas F inner join empresas E on E.id = F.cliente where F.id = RF.factura) as Cliente, ifnull(concat(M.nombre, ' ', M.paterno), 'N/A') as Mensajero from recorrido_facturas RF inner join recorridos R on R.id = RF.recorrido left join usuarios M on M.id = R.mensajero where 1 = 1";
-
-        if(isset($_POST['factura']))
-        {
-            $query .= " and RF.factura = $factura";
-        }
-
-        if($pendientes == "1")
-        {
-            $query .= " having Pendientes > 0";
-        }
-
-        $query .= " order by R.fecha_recorrido, R.id, RF.id asc";
-
-        $res = $this->Conexion->consultar($query);
-
+    $res = $this->Conexion->consultar($query, $id);
+    if($res) {
         echo json_encode($res);
     }
+}
+
+
+////////////////////////////////// L O G I S T I C A //////////////////////////////////
+function ajax_getMensajeros(){
+    // Consulta para obtener todos los usuarios con privilegio de mensajero activos
+    $query = "SELECT U.id, U.nombre, U.paterno, U.materno, U.no_empleado, U.puesto, U.correo, U.ultima_sesion, U.departamento, U.activo, U.jefe_directo, U.autorizador_compras, U.autorizador_compras_venta, concat(U.nombre, ' ', U.paterno) as User, concat(U.nombre, ' ', U.paterno, ' ', U.materno) as CompleteName from usuarios U inner join privilegios P on P.usuario = U.id where U.activo = '1'";
+    $query .= " and P.mensajero = '1'";
+    $query .= " order by User";
+
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
+    function ajax_setRecorrido(){
+    $mensajero = $this->input->post('mensajero');
+    $fecha = $this->input->post('fecha');
+    $recorrido = json_decode($this->input->post('recorrido'));
+
+    // Inserta cabecera del recorrido
+    $data['mensajero'] = $mensajero;
+    $data['fecha_recorrido'] = $fecha;
+    $recorrido_id = $this->Conexion->insertar('recorridos', $data);
+
+    // Por cada factura en el recorrido, crea detalle y actualiza su estatus
+    foreach ($recorrido as $value) {
+        $data2['recorrido'] = $recorrido_id;
+        $data2['factura'] = $value[1];
+        $data2['accion'] = $value[0];
+        $data2['estatus'] = "EN RECORRIDO";
+
+        $this->Conexion->insertar('recorrido_conceptos', $data2);
+        $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $data2['estatus']), null, array('id' => $data2['factura']));
+    }
+}
+
+function ajax_getRecorridos(){
+    $pendientes = $this->input->post('pendientes');
+    $factura = $this->input->post('factura');
+
+    // Consulta de todos los recorridos y sus detalles, con subconsultas para comentarios y pendientes
+    $query = "SELECT RF.*, R.mensajero, R.fecha_recorrido, (SELECT count(RC.id) from recorrido_comentarios RC where RC.recorrido_factura = RF.id) as Comentarios, (SELECT count(RF2.id) from recorrido_facturas RF2 where RF2.recorrido = RF.recorrido and RF2.estatus = 'EN RECORRIDO') as Pendientes, (SELECT E.nombre from solicitudes_facturas F inner join empresas E on E.id = F.cliente where F.id = RF.factura) as Cliente, ifnull(concat(M.nombre, ' ', M.paterno), 'N/A') as Mensajero from recorrido_facturas RF inner join recorridos R on R.id = RF.recorrido left join usuarios M on M.id = R.mensajero where 1 = 1";
+
+    // Filtra por factura específica si se envía
+    if(isset($_POST['factura'])) {
+        $query .= " and RF.factura = $factura";
+    }
+
+    // Filtra para mostrar solo recorridos con facturas pendientes
+    if($pendientes == "1") {
+        $query .= " having Pendientes > 0";
+    }
+
+    // Ordena resultados por fecha de recorrido, ID del recorrido y ID de la factura dentro del recorrido
+    $query .= " order by R.fecha_recorrido, R.id, RF.id asc";
+
+    $res = $this->Conexion->consultar($query);
+    echo json_encode($res);
+}
 
     function ajax_updateRecorrido(){
-        $recorrido = json_decode($this->input->post('recorrido'));
-        $recolecta = $this->input->post('recolecta');
-        $comentario = $this->input->post('comentario');
-        
-        $this->Conexion->modificar('recorrido_facturas', $recorrido, null, array('id' => $recorrido->id));
+    $recorrido = json_decode($this->input->post('recorrido')); // Decodifica los datos del recorrido
+    $recolecta = $this->input->post('recolecta'); // Indica si el estatus final es recolección
+    $comentario = $this->input->post('comentario'); // Comentario del usuario
 
-        if(substr($recorrido->estatus, 0, 2) == "NO")
-        {
-            $estat = "PENDIENTE " . $recorrido->accion;
-            $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $estat), null, array('id' => $recorrido->factura));
-        }
-        else
-        {
-            $estat = $recolecta == "1" ? "PENDIENTE RECOLECTA" : "CERRADO";
-            $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $estat), null, array('id' => $recorrido->factura));
-        }
+    // Actualiza los datos del recorrido en la tabla correspondiente
+    $this->Conexion->modificar('recorrido_facturas', $recorrido, null, array('id' => $recorrido->id));
 
-        if($comentario)
-        {
-            $color = substr($recorrido->estatus, 0, 2) == "NO" ? "red" : "green";
-            $comentario = '<font color=' . $color . '><b>' . $recorrido->estatus . ':</b></font> ' . $comentario;
-
-            $data_com['recorrido_factura'] = $recorrido->id;
-            $data_com['usuario'] = $this->session->id;
-            $data_com['comentario'] = $comentario;
-            $func_com['fecha'] = "CURRENT_TIMESTAMP()";
-            $this->Conexion->insertar('recorrido_comentarios', $data_com, $func_com);
-        }
-        
-        
+    // Si el estatus inicia con "NO", se considera como pendiente
+    if(substr($recorrido->estatus, 0, 2) == "NO") {
+        $estat = "PENDIENTE " . $recorrido->accion; // Marca como pendiente la acción (ej. ENTREGA o RECOLECCIÓN)
+        $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $estat), null, array('id' => $recorrido->factura));
+    } else {
+        // Si recolecta está activa, el nuevo estatus es "PENDIENTE RECOLECTA", si no, es "CERRADO"
+        $estat = $recolecta == "1" ? "PENDIENTE RECOLECTA" : "CERRADO";
+        $this->Conexion->modificar('solicitudes_facturas', array('estatus' => $estat), null, array('id' => $recorrido->factura));
     }
+
+    // Si se ingresó un comentario, se guarda en la tabla de comentarios del recorrido
+    if($comentario) {
+        // Define color del comentario: rojo para negativos, verde para positivos
+        $color = substr($recorrido->estatus, 0, 2) == "NO" ? "red" : "green";
+        $comentario = '<font color=' . $color . '><b>' . $recorrido->estatus . ':</b></font> ' . $comentario;
+
+        $data_com['recorrido_factura'] = $recorrido->id;
+        $data_com['usuario'] = $this->session->id;
+        $data_com['comentario'] = $comentario;
+        $func_com['fecha'] = "CURRENT_TIMESTAMP()";
+
+        // Inserta el comentario en la base de datos
+        $this->Conexion->insertar('recorrido_comentarios', $data_com, $func_com);
+    }
+}
 
     function ajax_getComentariosRecorrido(){
-        $id = $this->input->post('id');
+    // Se recibe el ID del recorrido de la factura mediante POST
+    $id = $this->input->post('id');
 
-        $query = "SELECT C.*, concat(U.nombre, ' ', U.paterno) as User from recorrido_comentarios C inner join usuarios U on U.id = C.usuario where 1 = 1";
+    // Consulta los comentarios asociados al recorrido de factura, junto con el nombre del usuario que los hizo
+    $query = "SELECT C.*, concat(U.nombre, ' ', U.paterno) as User from recorrido_comentarios C inner join usuarios U on U.id = C.usuario where 1 = 1";
 
-        if($id)
-        {
-            $query .= " and C.recorrido_factura = '$id'";
-        }
-        $query .= " order by C.fecha";
-
-        $res = $this->Conexion->consultar($query);
-        if($res)
-        {
-            echo json_encode($res);
-        }
-
-
+    // Si se proporcionó un ID específico, se filtra por ese recorrido
+    if($id) {
+        $query .= " and C.recorrido_factura = '$id'";
     }
+
+    // Ordena los resultados cronológicamente por fecha
+    $query .= " order by C.fecha";
+
+    $res = $this->Conexion->consultar($query);
+    if($res) {
+        echo json_encode($res);
+    }
+}
+
     function ver_POD($id){
-        //$query = "SELECT sf.id,sf.folio, sf.reporte_servicio, sf.fecha, sf.reporte_servicio, sf.orden_compra, concat(u.nombre, ' ',u.paterno) as responsable, e.razon_social, ec.nombre as contacto, ec.correo, concat(e.calle, ' ',e.numero, ' CP ',e.cp) as direccion,e.ciudad, e.estado, e.rfc,e.colonia FROM `solicitudes_facturas` sf JOIN usuarios u on u.id = sf.ejecutivo join empresas e on e.id = sf.cliente join empresas_contactos ec on ec.id = sf.cliente WHERE sf.id= $id";
-//echo $query;
+        //Se obtiene la información principal de la solicitud
         $query = "SELECT sf.id, sf.folio,sf.serie, sf.reporte_servicio, sf.fecha, sf.orden_compra, concat(u.nombre, ' ', u.paterno) as responsable, e.razon_social, concat(e.calle, ' ',e.numero, ' CP ',e.cp) as direccion,e.ciudad, e.estado, e.rfc,e.colonia, ec.nombre as contacto, ec.correo FROM solicitudes_facturas sf join usuarios u on sf.ejecutivo = u.id JOIN empresas e on sf.cliente = e.id JOIN empresas_contactos ec on sf.contacto = ec.id WHERE sf.id =$id";
         $factura = $this->Conexion->consultar($query, TRUE);
 
-  //      $query2 = "SELECT * FROM rsitems_facturas WHERE id_factura =".$id;
-$query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.Fec_CalibracionMT, s.DescripcionDeServicio, concat(rs.descripcion, if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)) ) as CadenaDescripcion from rsitems rs JOIN catalogo_servicios s on s.servicio_id = rs.item_servicio_id WHERE rs.Solicitud_ID =".$id." and rs.Factura = '".$factura->folio."'";
+        //Se consultan los equipos relacionados a la factura para mostrarlos en el documento
+        $query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.Fec_CalibracionMT, s.DescripcionDeServicio, concat(rs.descripcion, if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)) ) as CadenaDescripcion from rsitems rs JOIN catalogo_servicios s on s.servicio_id = rs.item_servicio_id WHERE rs.Solicitud_ID =".$id." and rs.Factura = '".$factura->folio."'";
         $rs = $this->MLConexion->consultar($query2);
         $total=0;
         foreach($rs as $row){
@@ -1149,7 +1166,7 @@ $query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.Fec_CalibracionMT, s.Descripc
        
 
         $f=$factura->serie . "-".$factura->folio; 
-     
+        //Configura el encabezado con folio, responsable y fecha    
         $pdf->SetCreator(PDF_CREATOR);
         $pdf->SetAuthor('AleksOrtiz');
         $pdf->SetTitle('Masmetrologia');
@@ -1159,14 +1176,10 @@ $query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.Fec_CalibracionMT, s.Descripc
         $txt = "                             Proof of delivery                       Responsable: " . $factura->responsable;
         $txt .= "\n                                                                                Fec. de elaboración:: " . $factura->fecha;
        
-
         $pdf->SetHeaderData(PDF_HEADER_LOGO_ORIGINAL, '40', $head, $txt);
-
-
         $pdf->setHeaderFont(Array(PDF_FONT_NAME_MAIN, '', 10));
         $pdf->setFooterFont(Array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
         $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-        //$pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
         $pdf->SetMargins(8, PDF_MARGIN_TOP, 8);
         $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
         $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
@@ -1182,7 +1195,9 @@ $query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.Fec_CalibracionMT, s.Descripc
 
         $pdf->AddPage();
         $pdf->SetFillColor(255, 255, 255);
-$pdf->SetFont('helvetica', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
+
+        //Construccion de la tabla HTML con los datos del cliente, dirección, contacto y total de equipos
         $tbl = <<<EOD
         <br>
             <table border="0">
@@ -1268,9 +1283,13 @@ EOD;
         $name = "POD ".$id." - PO ".$factura->orden_compra.'.pdf';
   
         $pdf->Ln();
-$pdf->Output(sys_get_temp_dir().'/'.$name, 'I');
+        
+        //El PDF generado se envía al navegador para su visualización.
+        $pdf->Output(sys_get_temp_dir().'/'.$name, 'I');
     }
+
 function ajax_enviarCorreoPOD(){
+        //Recepción de parámetros del formulario
         $id = $this->input->post('id');
         $body = $this->input->post('body');
         $subject = $this->input->post('subject');
@@ -1279,14 +1298,13 @@ function ajax_enviarCorreoPOD(){
         $certificados=[];
         $pdfname=null;
         $xmlname =null;
-
         $campos = json_decode($this->input->post('campos'));
         $archivos = [];
         $name_files = [];
+        //Consulta principal de la solicitud de factura
         $res = $this->Conexion->consultar("SELECT SF.* from solicitudes_facturas SF where SF.id = $id", TRUE);
         $pdfname=$res->name_factura;
         $xmlname=$res->name_xml;
-         //echo var_dump(file_put_contents($_FILES[$res->f_factura]['name']));die();
         foreach ($campos as $value) {
 
             if(substr($value, 0, 2 ) == "f_")
@@ -1295,7 +1313,6 @@ function ajax_enviarCorreoPOD(){
 
                 $fichero = sys_get_temp_dir(). '/' . $value . ($value == "f_xml" ? '.xml' : '.pdf');
                 $name =$value == "f_xml" ? $res->name_xml : $res->name_factura;
-               // echo var_dump($fichero);die();
                  file_put_contents($fichero, $file);
             }
             else
@@ -1315,13 +1332,12 @@ function ajax_enviarCorreoPOD(){
             array_push($archivos, $fichero);
             
         }
-
+        //Consulta de datos de cliente y factura
         $query = "SELECT sf.id, sf.folio,sf.serie, sf.reporte_servicio, sf.fecha, sf.orden_compra, concat(u.nombre, ' ', u.paterno) as responsable, e.razon_social, concat(e.calle, ' ',e.numero, ' CP ',e.cp) as direccion,e.ciudad, e.estado, e.rfc,e.colonia, ec.nombre as contacto, ec.correo FROM solicitudes_facturas sf join usuarios u on sf.ejecutivo = u.id JOIN empresas e on sf.cliente = e.id JOIN empresas_contactos ec on sf.contacto = ec.id WHERE sf.id =$id";
-
         $factura = $this->Conexion->consultar($query, TRUE);
 
+        //Consulta de equipos incluidos en la factura
         $query2 = "SELECT rs.descripcion, rs.Equipo_ID, rs.documento_id, rs.Fec_CalibracionMT, s.DescripcionDeServicio, concat(if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)) ) as CadenaDescripcion from rsitems rs JOIN catalogo_servicios s on s.servicio_id = rs.item_servicio_id WHERE rs.Solicitud_ID =".$id." and rs.Factura = '".$factura->folio."'";
-        //echo $query2;die();
          $rs = $this->MLConexion->consultar($query2);
          $total=0;
         foreach($rs as $row){
@@ -1335,6 +1351,7 @@ function ajax_enviarCorreoPOD(){
         ini_set('display_errors', 0);
         $this->load->library('pdfview');
 
+        //Inicialización y configuración del PDF
         $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
        
 
@@ -1356,7 +1373,6 @@ function ajax_enviarCorreoPOD(){
         $pdf->setHeaderFont(Array(PDF_FONT_NAME_MAIN, '', 10));
         $pdf->setFooterFont(Array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
         $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-        //$pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
         $pdf->SetMargins(8, PDF_MARGIN_TOP, 8);
         $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
         $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
@@ -1372,7 +1388,9 @@ function ajax_enviarCorreoPOD(){
 
         $pdf->AddPage();
         $pdf->SetFillColor(255, 255, 255);
-$pdf->SetFont('helvetica', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
+        
+        //Construcción del contenido del PDF
         $tbl = <<<EOD
         <br>
             <table border="0">
@@ -1457,9 +1475,9 @@ EOD;
         $name = "POD ".$id." - PO ".$factura->orden_compra.'.pdf';
   
         $pdf->Ln();
-$pdf->Output(sys_get_temp_dir().'/'.$name, 'F');
-
-$datos['pod']=sys_get_temp_dir().'/'.$name;
+        //Generación del PDF
+        $pdf->Output(sys_get_temp_dir().'/'.$name, 'F');
+        $datos['pod']=sys_get_temp_dir().'/'.$name;
 
         $datos['id'] = $id;
         $datos['para'] = $para;
@@ -1472,24 +1490,23 @@ $datos['pod']=sys_get_temp_dir().'/'.$name;
         $datos['pdfname']=$pdfname;
         $datos['xmlname']=$xmlname;
         $datos['po']=$factura->orden_compra;
-//echo var_dump($certificados);die();
         $this->correos_facturacion->archivos_facturacion($datos);
-
     }
+
     public function validar_archivos(){
+        // Obtener el ID de la solicitud enviado por POST
         $id=$this->input->post('ID');
         $factura = $this->Conexion->consultar("SELECT id, folio  from solicitudes_facturas where id= ".$id, true);
 
         $query = " select item_id, documento_id,Fec_CalibracionMT from rsitems where factura = ".$factura->folio." and Solicitud_ID";
-        //echo $query;die()
         $rs = $this->MLConexion->consultar($query);
         
         if($rs)
         {
             echo json_encode($rs);
-            //echo $query;
         }
         else{
+            // Si no se encontraron resultados, regresar una cadena vacía
             echo "";
         }
     }
@@ -1498,23 +1515,20 @@ $datos['pod']=sys_get_temp_dir().'/'.$name;
         $query = "SELECT wo.*, wd.*, rs.folio_id, rs.Localizacion, ei.Status_Descripcion as estatus_item, ew.Status_Descripcion as estatus_wo, concat(rs.descripcion, if(isnull(rs.Fabricante), '', concat(' ', rs.Fabricante)), if(isnull(rs.Modelo), '', concat(' ', rs.Modelo)), if(isnull(rs.Serie), '', concat(' Serie: ', rs.Serie)), if(isnull(rs.Equipo_ID), '', concat(' ID: ', rs.Equipo_ID))) as CadenaDescripcion from WO_Master wo JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN rsitems rs ON rs.item_id=wd.Item_Id JOIN tblStatusWO ei on ei.Status_id = wd.Item_Status JOIN tblStatusWO ew on ew.Status_ID=wo.WorkOrder_Status where wo.WorkOrder_ID = ".$id;
         $wo_detail=$this->MLConexion->consultar($query);
         $query2 = "SELECT wo.*, wd.*,rsn.Notas, we.Status_Descripcion, ct.nombre, rs.folio_id, rh.Empresa, rh.Direccion1, rh.Contacto, rh.TelefonoContacto, rh.CelularContacto from WO_Master wo JOIN WO_Detail wd on wo.WorkOrder_ID=wd.WorkOrder_ID JOIN tblStatusWO we on we.Status_ID=wo.WorkOrder_Status JOIN catalogo_tecnicos ct on ct.email_tecnico=wo.correo_us join rsitems rs on rs.item_id =wd.Item_Id join rsheaders rh on rh.folio_id=rs.folio_id join rsheadersnotas rsn on wo.rs=rsn.Folio_ID where wo.WorkOrder_ID=   ".$id;
+        
+        // Obtener información general de la orden de trabajo: empresa, contacto, técnico responsable y notas.
         $wo=$this->MLConexion->consultar($query2, TRUE);
         $comentario="SELECT cm.*, ct.nombre FROM comentarios_wo cm JOIN catalogo_tecnicos ct on cm.mail_us=ct.email_tecnico where 1 = 1 and cm.id_wo =".$id;
+        
+        // Obtener comentarios registrados por el técnico para esta orden de trabajo.
         $cm=$this->MLConexion->consultar($comentario);
 
         $qr =  '<img height="100" width="100" src="'. base_url('data/wo/'.$wo->qr).'"/>';
 
-
-         ini_set('display_errors', 0);
+        ini_set('display_errors', 0);
         $this->load->library('pdfview');
 
         $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-
-
-       
-
-        
-     
         $pdf->SetCreator(PDF_CREATOR);
         $pdf->SetAuthor('AleksOrtiz');
         $pdf->SetTitle('Masmetrologia');
@@ -1532,7 +1546,6 @@ $datos['pod']=sys_get_temp_dir().'/'.$name;
         $pdf->setHeaderFont(Array(PDF_FONT_NAME_MAIN, '', 10));
         $pdf->setFooterFont(Array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
         $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
-        //$pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
         $pdf->SetMargins(8, PDF_MARGIN_TOP, 8);
         $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
         $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
@@ -1546,12 +1559,12 @@ $datos['pod']=sys_get_temp_dir().'/'.$name;
 
         $pdf->SetFont('helvetica', '', 8);
 
-        //$pdf->AddPage();
         $pdf->AddPage('L', array('format' => 'A4'));
 
         $pdf->SetFillColor(255, 255, 255);
-$pdf->SetFont('helvetica', '', 10);
+        $pdf->SetFont('helvetica', '', 10);
         
+        //Construcción del contenido del PDF
          $tbl = <<<EOD
         <br>
             <table>
@@ -1580,13 +1593,10 @@ EOD;
         $pdf->writeHTML($tbl, true, true, true, true, '');
         
         $w = array(8, 125, 12, 24, 24);
-
-
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetTextColor(255);
         $pdf->Ln();$pdf->Ln();
         $w = array(20, 20, 125, 20);
-
         $pdf->SetTextColor(0);
         $pdf->SetFont('helvetica', '', 10);
             $pdf->Ln();
@@ -1669,39 +1679,39 @@ $pdf->Ln();
 
   
         $pdf->Ln();
-$pdf->Output(sys_get_temp_dir().'/'.$name, 'I');
+        //Generación del PDF
+        $pdf->Output(sys_get_temp_dir().'/'.$name, 'I');
     }
 
     function ajax_getClientesCotizaciones(){
-        $texto = $this->input->post('texto');
-        
-        $query = "SELECT Cust_ID, `Nombre Corto`  as nombre FROM catalogo_clientes where `Nombre Corto` is not null and  `Nombre Corto`  != '.'  ";
+    $texto = $this->input->post('texto');
 
-        if($texto)
-        {
-            $query .= "  and `Nombre Corto` like '%$texto%'";
-        }
-        
+    // Consulta clientes con nombre corto válido, y si se proporciona texto, se filtra por coincidencia parcial
+    $query = "SELECT Cust_ID, `Nombre Corto` as nombre FROM catalogo_clientes where `Nombre Corto` is not null and `Nombre Corto` != '.'";
 
-        $res = $this->MLConexion->consultar($query);
-
-        if($res)
-        {
-            echo json_encode($res);
-        }
+    if($texto)
+    {
+        $query .= " and `Nombre Corto` like '%$texto%'";
     }
-    function ver_foto($id){
-      $photo = $this->MLConexion->consultar('select * from WO_Master where WorkOrder_ID = '.$id);
-      if($photo)
-      {
+
+    $res = $this->MLConexion->consultar($query);
+
+    if($res)
+    {
+        echo json_encode($res);
+    }
+}
+
+function ver_foto($id){
+    // Recupera y muestra la foto asociada a la orden de trabajo como imagen PNG
+    $photo = $this->MLConexion->consultar('select * from WO_Master where WorkOrder_ID = '.$id);
+    if($photo)
+    {
         header("Content-type: image/png");
         echo $photo->foto;
-      }
-      else {
-        echo "ERROR";
-      }
     }
-
-
-
+    else {
+        echo "ERROR";
+    }
+}
 }
