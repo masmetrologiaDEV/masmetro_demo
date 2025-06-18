@@ -967,8 +967,7 @@ function ajax_setCotizacion() {
     $group = TRUE;
 
     // Query base
-    $query = "SELECT C.*, IFNULL(MAX(CC.revision), 0) AS UltRev, E.nombre AS Cliente, EC.nombre AS Contacto, CONCAT(R.nombre, ' ', R.paterno) AS Responsable, E.prospecto FROM cotizaciones C LEFT JOIN empresas E ON E.id = C.empresa LEFT JOIN empresas_contactos EC ON EC.id = C.contactos->'$[0]' LEFT JOIN usuarios R Oid = C.responsable LEFT JOIN cotizaciones_conceptos CC ON C.id = CC.cotizacion WHERE 1 = 1
-    ";
+    $query = "SELECT C.*, IFNULL(MAX(CC.revision), 0) AS UltRev, E.nombre AS Cliente, EC.nombre AS Contacto, CONCAT(R.nombre, ' ', R.paterno) AS Responsable, E.prospecto FROM cotizaciones C LEFT JOIN empresas E ON E.id = C.empresa LEFT JOIN empresas_contactos EC ON EC.id = C.contactos->'$[0]' LEFT JOIN usuarios R on R.id = C.responsable LEFT JOIN cotizaciones_conceptos CC ON C.id = CC.cotizacion WHERE 1 = 1";
 
         // Si se busca por ID específico
     if ($id) {
