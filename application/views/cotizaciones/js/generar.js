@@ -1916,7 +1916,9 @@ function agregarConcepto(Concepto){
     c5.innerHTML = '<textarea placeholder="Comentarios" name="txtComentarios" style="display: inline; resize: none; height: 40px;" class="form-control iptChange">' + Concepto.comentarios + '</textarea>';
     c6.innerHTML = select;
     c7.innerHTML = '<input name="txtEntrega" style="text-align:center;" type="number" class="form-control iptChange" min="100" max="999" value="' + Concepto.tiempo_entrega + '" oninput="validarDigitos(this, 3)">';
-    c8.innerHTML = '<input name="txtPU" style="text-align:right;" type="number" class="form-control iptChange" value="' + parseFloat(Concepto.precio_unitario).toFixed(2) + '" oninput="validarDigitos(this, 9)">';
+    //CAMBIOS PARA DECIMALES DE COTIZACIONES
+    //c8.innerHTML = '<input name="txtPU" style="text-align:right;" type="number" class="form-control iptChange" value="' + parseFloat(Concepto.precio_unitario).toFixed(2) + '" oninput="validarDigitos(this, 9)">';
+    c8.innerHTML = '<input name="txtPU" style="text-align:right;" type="text" class="form-control iptChange" value="' + parseFloat(Concepto.precio_unitario).toFixed(2) + '" oninput="validarDecimal(this, 7, 2)">';
     c9.innerHTML = '<button onclick="eliminarConcepto(this)" style="margin-left: 10px;' + btnDel + '" type="button" class="btn btn-danger btn-xs eliminar"><i class="fa fa-minus"></i></button>';
     
 
@@ -3335,3 +3337,36 @@ function cargarQrs(){
 
     input.value = valor;
 }
+
+//FUNCION AGREGADA PARA DECIMALES EN COTIZACION
+function validarDecimal(input, maxEnteros, maxDecimales) {
+    let valor = input.value;
+
+    // Permitir solo dígitos y un punto decimal
+    valor = valor.replace(/[^0-9.]/g, '');
+
+    // Eliminar múltiples puntos
+    let partes = valor.split('.');
+    if (partes.length > 2) {
+        valor = partes[0] + '.' + partes[1];
+    }
+
+    // Limitar enteros y decimales
+    if (partes.length === 2) {
+        partes[0] = partes[0].slice(0, maxEnteros);
+        partes[1] = partes[1].slice(0, maxDecimales);
+        valor = partes[0] + '.' + partes[1];
+    } else {
+        valor = valor.slice(0, maxEnteros);
+    }
+
+    input.value = valor;
+
+    // Validación personalizada del navegador
+    if (!valor || (partes.length === 2 && partes[1].length < 1)) {
+        input.setCustomValidity("Ingrese un número con hasta " + maxEnteros + " enteros y " + maxDecimales + " decimales.");
+    } else {
+        input.setCustomValidity("");
+    }
+}
+
