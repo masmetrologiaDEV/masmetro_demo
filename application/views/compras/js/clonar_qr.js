@@ -21,9 +21,9 @@ function checkFile(qr){
         data: { qr : qr },
         success: function(result) {
             if(result)
-            {
                 var rs = JSON.parse(result);
                 
+            {
                 if (rs=='1') {
                     QREXIST=1;
                     console.log('existe '+QREXIST);
@@ -247,6 +247,7 @@ function subtipo(){
 
         case "ACCESORIO":
             //$('#divRequisitosEspeciales').hide();
+            $('#tipo').hide();
             agregarRefaccion();
             break;
         
