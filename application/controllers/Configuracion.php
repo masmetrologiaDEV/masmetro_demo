@@ -74,11 +74,12 @@ class Configuracion extends CI_Controller {
 
     // Vista de notificaciones con datos desde modelo de privilegios
     function notificaiones() {
+
         $datos['noti'] = $this->privilegios_model->getNotificaciones(); // Obtiene notificaciones
         $this->load->view('header');                               // Carga el encabezado
         $this->load->view('configuracion/notificaciones', $datos); // Vista con notificaciones
     }
-}
+
     
     // Obtiene claves de precio desde la base de datos (por ID si se proporciona)
     function ajax_getClavesPrecio() {
@@ -554,4 +555,5 @@ function ajax_deleteTexto() {
     if($this->Conexion->modificar('texto_correo', $datos, null, $where)) {
         echo "1"; // Éxito
     }
+}
 }
