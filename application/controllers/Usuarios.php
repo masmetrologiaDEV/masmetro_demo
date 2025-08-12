@@ -75,6 +75,8 @@ class Usuarios extends CI_Controller {
     if ($id_inserted) {
         // Asigna privilegios básicos al nuevo usuario
         $this->privilegios_model->agregarPrivilegio(array('usuario' => $id_inserted));
+        // Asigna notificaciones basicas al nuevo usuario
+        $this->privilegios_model->agregarNotificaciones(array('idus' => $id_inserted));
         $acierto = array('titulo' => 'Agregar Usuario', 'detalle' => 'Se ha agregado Usuario con Éxito');
         array_push($ACIERTOS, $acierto);
     } else {

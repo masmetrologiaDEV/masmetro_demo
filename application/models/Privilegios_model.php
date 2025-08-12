@@ -17,6 +17,9 @@ class Privilegios_model extends CI_Model {
     function agregarPrivilegio($datos){
         return $this->db->insert('privilegios', $datos);
     }
+    function agregarNotificaciones($datos){
+        return $this->db->insert('notificaciones', $datos);
+    }
 
     function listadoPuestos(){
         $this->db->select('P.id, P.puesto, (SELECT count(*) from usuarios where puesto=P.id ) as Usuarios');
