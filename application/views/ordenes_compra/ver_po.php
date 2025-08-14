@@ -39,6 +39,7 @@
                                 <div id="divPDF">
                                     <a target='_blank' href='<?= base_url() . 'ordenes_compra/po_pdf/' . $id ?>'><button id='btnPDF' class="btn btn-primary btn-md" style="display: inline; margin-top: 10px;"><i class='fa fa-file-pdf-o'></i> Ver PDF</button></a>
                                     <button onclick='mdlCorreo()' style="display: inline; margin-top: 10px;" class="btn btn-primary btn-md" type="button"><i class='fa fa-envelope'></i>  Enviar PO</button>
+                                    <a target='_blank' href='<?= base_url() . 'ordenes_compra/solicitud_pago_pdf/' . $id ?>'><button id='btnPDF' class="btn btn-primary btn-md" style="display: inline; margin-top: 10px;"><i class='fa fa-money'></i> Solicitud de Pago</button></a>
                                 </div>
 
                                 

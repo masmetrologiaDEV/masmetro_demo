@@ -2010,6 +2010,276 @@ function guardarPO(){
         }
     }
 }
+
+ function solicitud_pago_pdf($id){
+       $query = "SELECT 
+    PO.id, PO.fecha, PO.shipping_address, PO.billing_address, PO.conceptos,
+    PO.subtotal, PO.descuento, PO.impuesto, PO.impuesto_nombre, PO.total,
+    PO.retencion, PO.moneda, PO.rma, PO.fecha_aprobacion,
+    CONCAT(U.nombre, ' ', U.paterno) AS User,
+    U.correo AS UserMail,
+    CONCAT(UA.nombre, ' ', UA.paterno) AS UserA,
+    E.razon_social, E.calle, E.numero, E.numero_interior, E.colonia,
+    E.ciudad, E.estado, E.pais, E.rfc,
+    EC.nombre, EC.telefono, EC.correo,
+    PR.id AS PR_id, PR.qr, PR.destino, E.nombre
+FROM ordenes_compra PO
+INNER JOIN empresas E ON PO.proveedor = E.id
+INNER JOIN usuarios U ON U.id = PO.usuario
+INNER JOIN usuarios UA ON UA.id = PO.aprobador
+INNER JOIN empresas_contactos EC ON PO.contacto = EC.id
+INNER JOIN prs PR ON JSON_CONTAINS(PO.prs, CONCAT('\"', PR.id, '\"'), '$')
+WHERE PO.id = ".$id;
+//echo $query;die();
+        // Consulta toda la información de la orden de compra, proveedor, aprobador y contacto
+
+        $res = $this->Conexion->consultar($query, TRUE);
+        $prs = $this->Conexion->consultar($query);
+
+        $conceptos = json_decode($res->conceptos);
+        // Decodifica los conceptos incluidos en la orden (formato JSON)
+
+        $PO = 'PO-' . str_pad($res->id, 6, "0", STR_PAD_LEFT);
+        $FECHA = date_format(date_create($res->fecha), 'd/m/Y h:i A');
+        // Formatea la fecha de creación de la orden
+
+        $PROVEEDOR = $res->razon_social;
+        $RMA = $res->rma;
+        $DOMICILIO = $res->calle . ' ' . $res->numero . ' ' . $res->numero_interior;
+        $COLONIA = $res->colonia;
+        $RFC = $res->rfc;
+
+        $REQUISITOR = $res->User;
+        $REQUISITOR_CORREO = $res->UserMail;
+
+        $APROBADOR = $res->UserA;
+        $FECHA_APROBACION = date_format(date_create($res->fecha_aprobacion), 'd/m/Y h:i A'); // d/m/Y h:i A
+
+        $CONTACTO = $res->nombre;
+        $TELEFONO = $res->telefono;
+        $CORREO = $res->correo;
+        $UBICACION = $res->ciudad . ', ' . $res->estado . ', ' . $res->pais;
+
+        $BILLING_A = $res->billing_address;
+        $SHIPPING_A = $res->shipping_address;
+
+        $SUBTOTAL = $res->subtotal;
+        $DESCUENTO = $res->descuento;
+        $IMPUESTO = $res->impuesto;
+        $IMPUESTO_NOMBRE = $res->impuesto_nombre;
+        $TOTAL = $res->total;
+        $MONEDA = $res->moneda;
+        $RETENCION = $res->retencion;
+        
+        
+        ini_set('display_errors', 0);
+        $this->load->library('pdfview');
+
+        $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+
+        $pdf->SetCreator(PDF_CREATOR);
+        $pdf->SetAuthor('AleksOrtiz');
+        $pdf->SetTitle('Masmetrologia');
+        $pdf->SetSubject('Formato PO');
+        
+        $pdf->SetHeaderData(PDF_HEADER_LOGO_ORIGINAL, '40', '                                                       Solicitud de Pago/ ' . $PO, "                                                             Fecha: " . $FECHA . " \n                                                             Comprador: ". $REQUISITOR ." \n                                                             Correo: " . $REQUISITOR_CORREO);
+        $pdf->setHeaderFont(Array(PDF_FONT_NAME_MAIN, '', 10));
+        $pdf->setFooterFont(Array(PDF_FONT_NAME_DATA, '', PDF_FONT_SIZE_DATA));
+        $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
+        $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
+        $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
+        $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
+        $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+        $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
+        if (@file_exists(dirname(__FILE__).'/lang/eng.php')) {
+            require_once(dirname(__FILE__).'/lang/eng.php');
+            $pdf->setLanguageArray($l);
+        }
+        $pdf->SetFont('times', 'B', 15);
+        $pdf->AddPage();        
+
+        $pdf->SetFillColor(255, 255, 255);
+
+        $pdf->SetFont('times', 'B', 12);
+        $pdf->MultiCell(90, 0, "Proveedor/Supplier:", 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $RMA ? "RMA:" : "", 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        $pdf->SetFont('times', '', 10);
+        $pdf->MultiCell(90, 6, $PROVEEDOR, 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $RMA ? $RMA : "", 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        
+
+        $pdf->SetFont('times', 'B', 12);
+        $pdf->MultiCell(90, 0, "Dirección / Address:", 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, "Contacto / Contact:", 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        $pdf->SetFont('times', '', 10);
+
+        $pdf->MultiCell(90, 0, $DOMICILIO, 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $CONTACTO, 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $COLONIA, 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $TELEFONO, 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $UBICACION, 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 0, $CORREO, 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        
+        $pdf->MultiCell(90, 6, $RFC, 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        
+        $pdf->SetFont('times', 'B', 12);
+        $pdf->MultiCell(90, 0, "Facturar a / Billing Address:", 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 6, "Enviar a / Shipping Address:", 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+        $pdf->SetFont('times', '', 10);
+
+        $pdf->MultiCell(90, 20, $BILLING_A, 0, 'L', 1, 0, '', '', true, 0, false, true, 0);
+        $pdf->MultiCell(90, 20, $SHIPPING_A, 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+
+        $pdf->MultiCell(180, 0, "", 0, 'L', 1, 1, '', '', true, 0, false, true, 0);
+
+        $pdf->SetFont('times', 'B', 12);
+        $pdf->SetFillColor(1, 59, 117);
+        $pdf->SetTextColor(255);
+
+        $pdf->SetTextColor(0);
+        $pdf->Cell(15, 6, "Cant.", 1, 0, 'C', 0);
+        $pdf->Cell(115, 6, "Descripción", 1, 0, 'C', 0);
+        $pdf->Cell(25, 6, "Precio Unit.", 1, 0, 'C', 0);
+        $pdf->Cell(25, 6, "Importe", 1, 0, 'C', 0);
+        $pdf->Ln();
+
+        $w = array(15, 115 , 25, 25);
+        $pdf->SetFont('', '', 10);
+        $pdf->MultiCell($w[0], 3,'','LR','C',0,0);
+        $pdf->MultiCell($w[1], 3,'','LR','L',0,0);
+        $pdf->MultiCell($w[2], 3,'','LR','R',0,0);
+        $pdf->MultiCell($w[3], 3,'','LR','R',0,0);
+        $pdf->Ln();
+        $i = 0;
+
+        // Itera por cada concepto para mostrar cantidad, descripción, precio unitario e importe
+        foreach($conceptos as $indice => $concepto) {
+            $cellcount = array();
+            $startX = $pdf->GetX();
+            $startY = $pdf->GetY();
+
+
+            $pu = $concepto[2] / $concepto[0];
+            $cellcount[] = $pdf->MultiCell($w[0], 6, $concepto[0], 0, 'C', 0, 0);
+            if (empty($concepto[3])) {
+            $cellcount[] = $pdf->MultiCell($w[1], 6, $concepto[1], 0, 'L', 0, 0);
+            }else{
+            $cellcount[] = $pdf->MultiCell($w[1], 6, $concepto[1]."\n Iva Retenido: ".$concepto[3]." - Retencion: "."$".number_format(floatval($concepto[4]),2)  , 0, 'L', 0, 0);    
+            }
+            
+            
+            $cellcount[] = $pdf->MultiCell($w[2], 6, "$" . number_format($pu, 2), 0, 'R', 0, 0);
+            $cellcount[] = $pdf->MultiCell($w[3], 6, "$" . number_format($concepto[2], 2), 0, 'R', 0, 0); // VER AQUI
+
+            $pdf->SetXY($startX, $startY);
+
+            $maxnocells = max($cellcount);
+
+            $pdf->MultiCell($w[0], $maxnocells * 6, '', 'LR', 'C', 0, 0);
+            $pdf->MultiCell($w[1], $maxnocells * 6, '', 'LR', 'L', 0, 0);
+            $pdf->MultiCell($w[2], $maxnocells * 6, '', 'LR', 'R', 0, 0);
+            $pdf->MultiCell($w[3], $maxnocells * 6, '', 'LR', 'R', 0, 0);
+            $pdf->Ln();
+            
+            // Si el concepto incluye IVA retenido o retención, agrega línea adicional con detalles
+            if(isset($concepto[3]) && !empty($concepto[3]))
+            {
+                $cellcount = array();
+                $startX = $pdf->GetX();
+                $startY = $pdf->GetY();
+
+                $cellcount[] = $pdf->MultiCell($w[0], 6, "", 0, 'C', 0, 0);
+
+                $pdf->SetXY($startX, $startY);
+
+                $maxnocells = max($cellcount);
+
+                $pdf->MultiCell($w[0], $maxnocells * 6,'','LR','C',0,0);
+                $pdf->MultiCell($w[1], $maxnocells * 6,'','LR','L',0,0);
+                $pdf->MultiCell($w[2], $maxnocells * 6,'','LR','R',0,0);
+                $pdf->MultiCell($w[3], $maxnocells * 6,'','LR','R',0,0);
+                $pdf->Ln();
+            }
+            $i++;
+
+            if($startY > 212)
+            // Si el contenido se acerca al final de la hoja, crea una nueva página
+
+            {
+                $pdf->MultiCell(180, 6,'','T','C',0,0);
+                $pdf->AddPage();
+            }
+        }
+        
+
+        for ($startY; $startY < 200; $startY = $startY + 6) { 
+            $pdf->MultiCell($w[0], 6, '---', 'LR', 'C', 0, 0);
+            $pdf->MultiCell($w[1], 6, '   -------------------------------------------------------------------------------------------', 'LR', 'L', 0, 0);
+            $pdf->MultiCell($w[2], 6, '   ---------------   ', 'LR', 'R', 0, 0);
+            $pdf->MultiCell($w[3], 6, '   ---------------   ', 'LR', 'R', 0, 0);
+            $pdf->Ln();
+        }
+
+        // Muestra el resumen de importes: subtotal, descuento, impuestos, retención y total
+    
+        // Guardamos la posición actual antes de los totales
+$y_totales = $pdf->GetY();
+
+// === Bloque de Totales ===
+$pdf->MultiCell(130, 6, '', 'T', 'M', 0 , 0);
+$pdf->MultiCell($w[2], 6, 'Sub-Total', 'T', 'C', 0 , 0);
+$pdf->MultiCell($w[3], 6, "$" . number_format($SUBTOTAL, 2), 1, 'R', 0, 0);
+$pdf->Ln();
+
+$pdf->MultiCell(130, 6, '', 0, 'M', 0 , 0);
+$pdf->MultiCell($w[2], 6, 'Descuento', 0, 'C', 0 , 0);
+$pdf->MultiCell($w[3], 6, "$" . number_format($DESCUENTO, 2), 1, 'R', 0 , 0);
+$pdf->Ln();
+
+$pdf->MultiCell(130, 6, '', 0, 'M', 0 , 0);
+$pdf->MultiCell($w[2], 6, "IVA / TAX", 0, 'C', 0 , 0);
+$pdf->MultiCell($w[3], 6, "$" . number_format($IMPUESTO, 2), 1, 'R', 0 , 0);
+$pdf->Ln();
+
+$pdf->MultiCell(130, 6, '', 0, 'M', 0 , 0);
+$pdf->MultiCell($w[2], 6, 'Retencion', 0, 'C', 0 , 0);
+$pdf->MultiCell($w[3], 6, "$" . number_format($RETENCION, 2), 1, 'R', 0 , 0);
+$pdf->Ln();
+
+$pdf->MultiCell(130, 6, "", 0, 'M', 0 , 0);
+$pdf->MultiCell($w[2], 6, 'Total', 0, 'C', 0 , 0);
+$pdf->MultiCell($w[3], 6, "$" . number_format($TOTAL, 2), 1, 'R', 0 , 0);
+$pdf->Ln();
+
+// === Lista de PRs al lado de los totales ===
+$pdf->SetXY(15, $y_totales); // 15 = margen izquierdo
+if (is_array($prs)) {
+    foreach ($prs as $r) {
+        $line = '* Destino: ' . $r->destino . ' / PR: ' . $r->PR_id . ' / Cliente: '.$r->nombre;
+        $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1); // ancho ajustado
+    }
+} else {
+    $line = '* Destino: ' . $prs->destino . ' / PR: ' . $prs->PR_id . ' / Cliente: ' . $prs->nombre;
+    $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1);
+}
+
+        $pdf->Ln();
+        
+        $pdf->MultiCell(180, 6, '', 0, 'M', 0 , 0);
+        $pdf->Ln();
+
+        $pdf->MultiCell(180, 6, '', 0, 'M', 0 , 0);
+        $pdf->Ln();
+        $pdf->Ln();
+
+       
+        $pdf->Ln();
+
+        // Genera y envía el PDF al navegador
+        $pdf->Output($PO . '.pdf', 'I');
+    }
+
+
 }
 
 
