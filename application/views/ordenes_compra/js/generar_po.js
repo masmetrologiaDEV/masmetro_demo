@@ -46,6 +46,7 @@ function buscar(){
                     ren.insertCell().innerHTML = elem.Modelo;
                     ren.insertCell().innerHTML = elem.descripcion;
                     ren.insertCell().innerHTML = elem.importe + " " + elem.moneda;
+                    ren.insertCell().innerHTML = elem.cotizador;
                     
                     var btn = "";
                     switch (elem.estatus)

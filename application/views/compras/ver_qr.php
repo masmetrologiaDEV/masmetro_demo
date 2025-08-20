@@ -200,7 +200,7 @@
                                             <tr>
                                                 <th style="width: 45%">Nombre</th>
                                                 <th>Puesto</th>
-                                                <th>Asginado por</th>
+                                                <th>Asignado por</th>
                                                 <th>Fecha Asigancion</th>
                                             </tr>
                                         </thead>
@@ -246,7 +246,7 @@
                                                 <th>Entrega</th>
                                                 <th>Opciones</th>
                                                 <th style="display: none;">Costeo</th>
-                                                <th>Asginado por</th>
+                                                <th>Cotizado por</th>
                                                 <th>Fecha Asigancion</th>
                                             </tr>
                                         </thead>

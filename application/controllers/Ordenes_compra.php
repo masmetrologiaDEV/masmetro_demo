@@ -407,7 +407,8 @@ function calendario_seguimiento(){
     $moneda = $this->input->post('moneda');
 
     // Consulta principal para obtener PRs aprobados relacionados con un proveedor
-    $query = "SELECT PR.id, E.id as IdProv, E.nombre as Prov, PR.cantidad, PR.tipo, ifnull(JSON_UNQUOTE(PR.atributos->'$.modelo'),'N/A') as Modelo, PR.descripcion, PR.importe, PR.moneda, PR.estatus from prs PR inner join qr_proveedores QR_p on PR.qr_proveedor = QR_p.id inner join empresas E on QR_p.empresa = E.id where 1=1 ";
+    $query = "SELECT PR.id, E.id as IdProv, E.nombre as Prov, PR.cantidad, PR.tipo, ifnull(JSON_UNQUOTE(PR.atributos->'$.modelo'),'N/A') as Modelo, PR.descripcion, PR.importe, PR.moneda, PR.estatus,  CONCAT(U.nombre, ' ', U.paterno) AS cotizador from prs PR inner join qr_proveedores QR_p on PR.qr_proveedor = QR_p.id inner join empresas E on QR_p.empresa = E.id INNER JOIN usuarios U 
+    ON QR_p.asignador = U.id where 1=1 ";
 
     // Filtra por proveedor, moneda y tipo si se especifica un proveedor
     if($id_proveedor > 0)
@@ -433,7 +434,6 @@ function calendario_seguimiento(){
             $query .= " and (PR.descripcion like '%$texto%' or UPPER(PR.atributos->'$.marca') like UPPER('%$texto%') or UPPER(PR.atributos->'$.modelo') like UPPER('%$texto%') )";
         }
     }
-
     $res = $this->Conexion->consultar($query);
     if($res)
     {

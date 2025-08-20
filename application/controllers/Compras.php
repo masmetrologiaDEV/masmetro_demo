@@ -386,7 +386,7 @@ class Compras extends CI_Controller {
 
         // Si no es consulta de archivo histórico
         if ($archivo != 1) {
-            $query .= " AND R.fecha > '2021-01-01 00:00:00'";
+            $query .= " AND R.fecha > '2024-01-01 00:00:00'";
         }
 
         $query .= " ORDER BY R.fecha DESC";

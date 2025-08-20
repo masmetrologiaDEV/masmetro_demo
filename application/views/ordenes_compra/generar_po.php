@@ -75,6 +75,7 @@
                                     <th class="column-title">Modelo</th>
                                     <th style="width: 25%" class="column-title">Descripción</th>
                                     <th class="column-title">Monto</th>
+                                    <th class="column-title">Cotizado</th>
                                     <th class="column-title">Estatus</th>                                    
                                 </tr>
                             </thead>
