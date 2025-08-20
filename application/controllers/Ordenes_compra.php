@@ -2281,6 +2281,8 @@ $pdf->Ln();
 $this->load->model('MLConexion_model', 'MLConexion');
 // === Lista de PRs al lado de los totales ===
 $pdf->SetXY(15, $y_totales); // 15 = margen izquierdo
+$lineasUnicas = []; // aquí vamos guardando solo las distintas
+
 if (is_array($prs)) {
     foreach ($prs as $r) {
 
@@ -2291,13 +2293,16 @@ if (is_array($prs)) {
 
         $res_item = $this->MLConexion->consultar($query_item, TRUE);
 
-        // Si hay cliente, lo agregamos, si no, solo mostramos la categoría
+        // Armamos la línea
         $line = '* '.$r->Categoria;
         if (!empty($res_item) && !empty($res_item->nombrecorto)) {
             $line .= ' / Cliente: '.$res_item->nombrecorto;
         }
 
-        $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1);
+        // Solo agregamos si aún no existe
+        if (!in_array($line, $lineasUnicas)) {
+            $lineasUnicas[] = $line;
+        }
     }
 } else {
 
@@ -2313,7 +2318,14 @@ if (is_array($prs)) {
         $line .= ' / Cliente: '.$res_item->nombrecorto;
     }
 
-    $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1);
+    if (!in_array($line, $lineasUnicas)) {
+        $lineasUnicas[] = $line;
+    }
+}
+
+// Finalmente imprimimos solo las únicas
+foreach ($lineasUnicas as $linea) {
+    $pdf->MultiCell(120, 6, $linea, 0, 'L', 0, 1);
 }
 
 
