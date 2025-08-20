@@ -2012,7 +2012,7 @@ function guardarPO(){
 }
 
  function solicitud_pago_pdf($id){
-       $query = "SELECT 
+       /*$query = "SELECT 
     PO.id, PO.fecha, PO.shipping_address, PO.billing_address, PO.conceptos,
     PO.subtotal, PO.descuento, PO.impuesto, PO.impuesto_nombre, PO.total,
     PO.retencion, PO.moneda, PO.rma, PO.fecha_aprobacion,
@@ -2030,8 +2030,35 @@ INNER JOIN usuarios UA ON UA.id = PO.aprobador
 INNER JOIN empresas_contactos EC ON PO.contacto = EC.id
 INNER JOIN prs PR ON JSON_CONTAINS(PO.prs, CONCAT('\"', PR.id, '\"'), '$')
 left JOIN pr_atributos PA ON JSON_CONTAINS(PO.prs, CONCAT('\"', PA.idPr, '\"'), '$')
-WHERE PO.id = ".$id;
+WHERE PO.id = ".$id;*/
 //echo $query;die();
+$query="SELECT 
+    PO.id, PO.fecha, PO.shipping_address, PO.billing_address, PO.conceptos,
+    PO.subtotal, PO.descuento, PO.impuesto, PO.impuesto_nombre, PO.total,
+    PO.retencion, PO.moneda, PO.rma, PO.fecha_aprobacion,
+    CONCAT(U.nombre, ' ', U.paterno) AS User,
+    U.correo AS UserMail,
+    CONCAT(UA.nombre, ' ', UA.paterno) AS UserA,
+    E.razon_social, E.calle, E.numero, E.numero_interior, E.colonia,
+    E.ciudad, E.estado, E.pais, E.rfc,
+    EC.nombre, EC.telefono, EC.correo,
+    PR.id AS PR_id, PR.qr, PR.destino, 
+    PA.item,
+      CASE 
+        WHEN PR.destino = 'VENTA' AND PR.tipo = 'Producto' THEN 'EQUIPOS PARA VENTA'
+        WHEN PR.destino = 'VENTA' AND PR.tipo = 'Servicio' THEN 'GASTOS Y SERVICIOS PARA VENTA'
+        WHEN PR.destino = 'CONSUMO INTERNO' AND PR.tipo = 'Producto' THEN 'EQUIPOS Y HERRAMIENTAS INTERNOS'
+        WHEN PR.destino = 'CONSUMO INTERNO' AND PR.tipo = 'Servicio' THEN 'GASTOS Y SERVICIOS INTERNOS'
+        ELSE 'OTRO'
+    END AS Categoria
+FROM ordenes_compra PO
+INNER JOIN empresas E ON PO.proveedor = E.id
+INNER JOIN usuarios U ON U.id = PO.usuario
+INNER JOIN usuarios UA ON UA.id = PO.aprobador
+INNER JOIN empresas_contactos EC ON PO.contacto = EC.id
+INNER JOIN prs PR ON JSON_CONTAINS(PO.prs, CONCAT('\"', PR.id, '\"'), '$')
+LEFT JOIN pr_atributos PA ON JSON_CONTAINS(PO.prs, CONCAT('\"', PA.idPr, '\"'), '$')
+WHERE PO.id =".$id;
         // Consulta toda la información de la orden de compra, proveedor, aprobador y contacto
 
         $res = $this->Conexion->consultar($query, TRUE);
@@ -2257,20 +2284,38 @@ $pdf->SetXY(15, $y_totales); // 15 = margen izquierdo
 if (is_array($prs)) {
     foreach ($prs as $r) {
 
-         $query_item = "SELECT RI.folio_id, RH.`Nombre Corto` as nombrecorto
+        $query_item = "SELECT RI.folio_id, RH.`Nombre Corto` as nombrecorto
+                       FROM rsitems RI
+                       INNER JOIN rsheaders RH ON RH.folio_id = RI.folio_id
+                       WHERE RI.item_id = '".$r->item."'";
+
+        $res_item = $this->MLConexion->consultar($query_item, TRUE);
+
+        // Si hay cliente, lo agregamos, si no, solo mostramos la categoría
+        $line = '* '.$r->Categoria;
+        if (!empty($res_item) && !empty($res_item->nombrecorto)) {
+            $line .= ' / Cliente: '.$res_item->nombrecorto;
+        }
+
+        $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1);
+    }
+} else {
+
+    $query_item = "SELECT RI.folio_id, RH.`Nombre Corto` as nombrecorto
                    FROM rsitems RI
                    INNER JOIN rsheaders RH ON RH.folio_id = RI.folio_id
-                   WHERE RI.item_id = '".$r->item."'";
+                   WHERE RI.item_id = '".$prs->item."'";
 
     $res_item = $this->MLConexion->consultar($query_item, TRUE);
 
-        $line = '* Destino: ' . $r->destino . ' / PR: ' . $r->PR_id . ' / Cliente: '.$res_item->nombrecorto;
-        $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1); // ancho ajustado
+    $line = '* '.$prs->Categoria;
+    if (!empty($res_item) && !empty($res_item->nombrecorto)) {
+        $line .= ' / Cliente: '.$res_item->nombrecorto;
     }
-} else {
-    $line = '* Destino: ' . $prs->destino . ' / PR: ' . $prs->PR_id . ' / Cliente: ' . $res_item->nombrecorto;
+
     $pdf->MultiCell(120, 6, $line, 0, 'L', 0, 1);
 }
+
 
         $pdf->Ln();
         
