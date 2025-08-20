@@ -2029,7 +2029,7 @@ INNER JOIN usuarios U ON U.id = PO.usuario
 INNER JOIN usuarios UA ON UA.id = PO.aprobador
 INNER JOIN empresas_contactos EC ON PO.contacto = EC.id
 INNER JOIN prs PR ON JSON_CONTAINS(PO.prs, CONCAT('\"', PR.id, '\"'), '$')
-INNER JOIN pr_atributos PA ON JSON_CONTAINS(PO.prs, CONCAT('\"', PA.idPr, '\"'), '$')
+left JOIN pr_atributos PA ON JSON_CONTAINS(PO.prs, CONCAT('\"', PA.idPr, '\"'), '$')
 WHERE PO.id = ".$id;
 //echo $query;die();
         // Consulta toda la información de la orden de compra, proveedor, aprobador y contacto
