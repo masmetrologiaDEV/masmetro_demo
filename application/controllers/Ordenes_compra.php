@@ -434,6 +434,7 @@ function calendario_seguimiento(){
             $query .= " and (PR.descripcion like '%$texto%' or UPPER(PR.atributos->'$.marca') like UPPER('%$texto%') or UPPER(PR.atributos->'$.modelo') like UPPER('%$texto%') )";
         }
     }
+    //echo $query;die();
     $res = $this->Conexion->consultar($query);
     if($res)
     {

@@ -69,7 +69,7 @@ function buscar(){
                         btn = 'btn btn-default btn-xs';
                         break;
                     }
-                    var cell7 = ren.insertCell(8);
+                    var cell7 = ren.insertCell(9);
                     cell7.innerHTML = "<a href='#' class='" + btn + "'>" + elem.estatus + "</a>";
 
                     $('input.flat').iCheck({
