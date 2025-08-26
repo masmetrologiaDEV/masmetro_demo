@@ -104,7 +104,6 @@ $db['second'] = array(
 	'username' => 'jose',
 	'password' => 'Temp1234@',
 	'database' => 'mlsystemdb',
-	'database' => 'mlsystemdb',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => TRUE,

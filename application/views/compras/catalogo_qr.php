@@ -29,6 +29,8 @@
                                     <input type="radio" class="flat" name="rbBusqueda" id="rbUsuario" value="usuario" />
                                     Contenido:
                                     <input type="radio" class="flat" name="rbBusqueda" id="rbContenido" value="contenido" />
+                                    Proveedor:
+                                    <input type="radio" class="flat" name="rbBusqueda" id="rbContenido" value="proveedor" />
 
                                 </p>
 
@@ -116,6 +118,7 @@
                                     <th class="column-title">Tipo</th>
                                     <th class="column-title">Subtipo</th>
                                     <th class="column-title">Cant.</th>
+                                    <th class="column-title">Proveedor</th>
                                     <th style="width: 25%" class="column-title">Descripción</th>
                                     <th class="column-title">Cotizaciones</th>
                                     <th class="column-title">Estatus</th>

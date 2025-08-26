@@ -315,10 +315,12 @@ class Compras extends CI_Controller {
         // Consulta base con JOIN para obtener nombre del usuario
         $query = "SELECT R.id, R.fecha, R.usuario, R.prioridad, R.tipo, R.subtipo, R.cantidad, 
                          R.cantidad_aprobada, R.unidad, R.clave_unidad, R.descripcion, R.atributos, 
-                         R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, 
+                         R.critico, R.destino, R.lugar_entrega, R.comentarios, R.estatus, R.asignado, E.nombre as nombre_empresa,
                          CONCAT(U.nombre, ' ', U.paterno) AS User 
                   FROM requisiciones_cotizacion R 
                   LEFT JOIN usuarios U ON R.usuario = U.id 
+                  INNER JOIN qr_proveedores QP on QP.qr=R.id
+                  INNER JOIN empresas E on E.id=QP.empresa
                   WHERE 1 = 1";
 
         // Filtros opcionales según campos recibidos
@@ -371,6 +373,9 @@ class Compras extends CI_Controller {
                 case 'usuario':
                     $query .= " AND CONCAT(U.nombre, ' ', U.paterno) LIKE '%$texto%'";
                     break;
+                case 'proveedor':
+                    $query .= " AND E.nombre LIKE '%$texto%'";
+                    break;
                 case 'contenido':
                     $query .= " AND (R.descripcion LIKE '%$texto%' 
                                  OR UPPER(R.atributos->'$.marca') LIKE UPPER('%$texto%') 
@@ -390,7 +395,7 @@ class Compras extends CI_Controller {
         }
 
         $query .= " ORDER BY R.fecha DESC";
-
+//echo $query;die();
         // Ejecuta la consulta
         $res = $this->Modelo->consulta($query);
         if ($res) {

@@ -66,12 +66,13 @@ function buscar(){
                     ren.insertCell(4).innerHTML = elem.tipo;
                     ren.insertCell(5).innerHTML = elem.subtipo;
                     ren.insertCell(6).innerHTML = elem.cantidad;
-                    ren.insertCell(7).innerHTML = elem.descripcion;
+                    ren.insertCell(7).innerHTML = elem.nombre_empresa;
+                    ren.insertCell(8).innerHTML = elem.descripcion;
 
                     if(elem.estatus == "LIBERADO" && ((elem.destino == "VENTA" && V == "1") | (elem.destino == "CONSUMO INTERNO" && I == "1") | RV == "1") ){
-                        ren.insertCell(8).innerHTML = "<button type='button' onclick='selectPropuesta(this)' value='" + elem.id + "' class='btn btn-default btn-xs'><i class='fa fa-file-text-o'></i></button>";
+                        ren.insertCell(9).innerHTML = "<button type='button' onclick='selectPropuesta(this)' value='" + elem.id + "' class='btn btn-default btn-xs'><i class='fa fa-file-text-o'></i></button>";
                     } else {
-                        ren.insertCell(8).innerHTML = "N/A";
+                        ren.insertCell(9).innerHTML = "N/A";
                     }
                     
                     var btn = "";
@@ -99,7 +100,7 @@ function buscar(){
                         btn = 'btn btn-danger btn-xs';
                         break;
                     }
-                    var cell9 = ren.insertCell(9);
+                    var cell9 = ren.insertCell(10);
                     //cell9.innerHTML = "<a href='" + base_url + "compras/ver_qr/"+ elem.id +"' class='" + btn + "'>" + elem.estatus + "</a>";
                     cell9.innerHTML = boton(elem.estatus, elem.id, btn, elem.usuario == usuario);
                     
