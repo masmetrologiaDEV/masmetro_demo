@@ -10,8 +10,6 @@ cargarAcciones();
 
     $('button.cancelacion').show();
 
-
-
     jQuery.ajaxSetup({async:false});
     if(ID != 0)
     {
@@ -107,12 +105,6 @@ function cancelar(){
      }
 }
 
-
-
-
-
-
-
 //////////////// DATOS
 
 function cargarDatos(rev = null){
@@ -171,9 +163,6 @@ function cargarDatos(rev = null){
                 {
                     $('#divTipoCambio').show();
                 }
-
-                
-                
 
                 if(rev == null)
                 {
@@ -237,15 +226,7 @@ function bitacoraEstatus(){
                 $('#mdlBitacora').modal();
             }
         }
-    });
-
-
-
-
-
-    
-    
-    
+    });    
 }
 
 function cargarComentarios(){
@@ -456,11 +437,7 @@ function controles(estatus){
     $('button.pdf').show();
     $('button.solicitud').show();
     $('button.eliminar').show();
-    
-
     switch (estatus) {
-        
-        
 
         case "PENDIENTE AUTORIZACION":
             if(PRIVILEGIOS.aprobar_cotizacion == "1")
@@ -591,8 +568,6 @@ function controles(estatus){
             break;
     }
 }
-
-
 //////////////// CLIENTES
 
 function mdlClientes(){
@@ -636,8 +611,6 @@ function seleccionarCliente(btn, contactoDef = true, selectPlanta = true){
     {
         
     }
-    
-
     $('#tablaContactos tbody tr').remove();
 
     var URL = base_url + "cotizaciones/ajax_getClientes";
@@ -653,8 +626,6 @@ function seleccionarCliente(btn, contactoDef = true, selectPlanta = true){
                 var rs = JSON.parse(result);
                 
                 var xxx = selectPlanta ? !mdlPlanta(rs.id, contactoDef) : true;
-                
-
                 if(xxx) //SI NO HAY PLANTA DESPLEGA
                 {
                     $('#divCliente').show();
@@ -703,11 +674,7 @@ function seleccionarCliente(btn, contactoDef = true, selectPlanta = true){
                             seleccionarContacto(btn);    
                         });
                     }
-                }
-
-
-
-                
+                }                
             }
           },
         error: function(data){
@@ -721,8 +688,6 @@ function seleccionarPlanta(btn){
 
     var URL = base_url + "cotizaciones/ajax_getPlanta";
     var id = $(btn).val();
-
-
     if(id == 0)
     {
         $('#lblPlantaCliente').text("N/A");
@@ -758,10 +723,7 @@ function seleccionarPlanta(btn){
             },
         });
     }
-
     $('#mdlPlanta').modal('hide');
-
-    
     var btn = document.createElement("button");
     btn.value = $('#mdlPlanta').data('id_cliente');
     seleccionarCliente(btn, $('#mdlPlanta').data('contacto_default'), false);
@@ -829,9 +791,7 @@ function evaluarMoneda(moneda){
         $('#divTipoCambio').hide();
     }
 }
-
 //////////////// CONTACTOS
-
 function buscarContactos(){
     var URL = base_url + "cotizaciones/ajax_getContactos";
     $('#tblContactos tbody tr').remove();
@@ -919,9 +879,7 @@ function seleccionarContacto(btn){
                     $('#mdlContactos').modal('hide');
                     $('#divContacto').show();
                     $('#tags_1').val(CORREOS);
-                }
-                
-               
+                }            
             }
           },
         error: function(data){
@@ -1010,9 +968,7 @@ function seleccionarAutor(btn){
         },
     });
 }
-
 //////////////// CONCEPTOS
-
 function mdlAgregarConcepto(){
     limpiarBusquedaEquipo();
     if($('#opTipo').val().startsWith("CALIBRACION"))
@@ -1069,8 +1025,6 @@ function buscarEquipo(){
     var URL = base_url + "cotizaciones/";
     var valor1 = $('#txtBusqueda1').val().trim();
     var valor2 = $('#txtBusqueda2').val().trim();
-    
-
     if(param == "id_equipo" && valor1)
     {
         //URL += "ajax_getSAData";
@@ -1148,8 +1102,6 @@ function buscarEquipo(){
                                 $('#opSitio').append(new Option(dic[sitio], dic[sitio]));
                             }
                         });
-
-                        
                         var codigos = rs.Table[0].CodigoServicios;
                         if(codigos){
                             $.each(codigos.split(","), function (i, code) { 
@@ -1159,8 +1111,7 @@ function buscarEquipo(){
 
                         var tab = $('#tblServicio tbody')[0];
                         
-                        var precio = rs.Table[0].Precio;
-                        
+                        var precio = rs.Table[0].Precio;                
                        
                         if(tab.rows.length == 0)
                         {
@@ -1188,9 +1139,6 @@ function buscarEquipo(){
                                     alert("Servicio EXTERNO, capture precio del servicio");
                                     ro = "";
                                 }
-
-                                
-
                                 if($('#opSitio option').length > 0)
                                 {
                                     var ren = tab.insertRow(tab.rows.length);
@@ -1262,10 +1210,8 @@ function buscarEquipo(){
                                     $('#tblServicio tr th:nth-child(4), #tblServicio tr td:nth-child(4)').hide();
                                 });
                             }
-                        }
-                        
-                    }
-                    
+                        }                        
+                    }                    
                 }
             },
             error: function(data){
@@ -1315,8 +1261,6 @@ function buscarEquipo(){
 
                     $('.divRb').hide();
                     $('#divrbMarMod').show();
-
-
                     
                     $.each(JSON.parse(rs.servicio) , function (i, code) { 
                         asignarServicio_ID(code);
@@ -1329,8 +1273,6 @@ function buscarEquipo(){
             },
         });
     }
-
-
 }
 
 function evaluarBusqueda(param){
@@ -1393,7 +1335,6 @@ function evaluarBusqueda(param){
         c4.innerHTML = '<input type="text" id="txtModelo" class="form-control">';
         c5.innerHTML = '<input type="text" id="txtSerie" class="form-control">';
 
-
         $('#divEquipo').data('ipt', 1);
         $('#divServicio').data('ipt', 1);
     }
@@ -1417,11 +1358,8 @@ function evaluarBusqueda(param){
         var c1 = ren.insertCell();
         var c2 = ren.insertCell();
 
-
         c1.innerHTML = '<input type="text" id="txtDescripcion" class="form-control">';
         c2.innerHTML = '<input type="number" id="txtPrecio" class="form-control">';
-
-        //$('#tblServicio tr th:first, #tblServicio tr td:first').hide();
 
         $('#divEquipo').data('ipt', 1);
         $('#divServicio').data('ipt', 1);
@@ -1459,7 +1397,6 @@ function eliminarConcepto(btn){
             ren.dataset.registro = ren.dataset.registro * -1;
             $(ren).hide();
         }
-        
         numerarTabla();
     }
 }
@@ -1592,14 +1529,11 @@ function asignarServicio_CODIGO(codigo){
             c3.innerHTML = rs.alto;
             c4.innerHTML = '<button onclick="removerServicio(this)" style="margin-left: 10px;" type="button" class="btn btn-danger btn-xs eliminar"><i class="fa fa-minus"></i></button>';     
         }
-    });
-
+ });
 }
 
 function asignarServicio_ID(id){
-    
     $('#opSitio').attr('disabled', true);
-
 
     var URL = base_url + "servicios/ajax_getServicios";
 
@@ -1648,7 +1582,6 @@ function agregarServicioManual(){
     c3.innerHTML = '<input type="number" name="txtPrecio" class="form-control">';
     c4.innerHTML = '<button onclick="removerServicio(this)" style="margin-left: 10px;" type="button" class="btn btn-danger btn-xs eliminar"><i class="fa fa-minus"></i></button>';
 
-    //$('#tblServicio tr th:first, #tblServicio tr td:first').hide();
 }
 
 function removerServicio(btn){
@@ -1682,8 +1615,7 @@ function verServicio(btn){
 
 
 /* AQUI HAY QUE MODIFICAR PARA ADJUNTAR VARIOS SERVICIOS */
-function validacionAgregarConcepto(){
-    
+function validacionAgregarConcepto(){   
     Concepto = {};
     Concepto.atributos = {};
 
@@ -1693,7 +1625,6 @@ function validacionAgregarConcepto(){
             alert('Ingrese nombre de cabezal');
             return;
         }
-
         ///// C O N C E P T O /////
         Concepto.id = 0;
         Concepto.cantidad = 1;
@@ -1715,7 +1646,6 @@ function validacionAgregarConcepto(){
 
         Concepto.descripcion = iptEqui ? $('#txtDescripcion').val().trim() : $('#cllDescripcion').text().trim();
 
-        
         if($('#divEquipo').is(':visible'))
         {
             Concepto.atributos.ID = iptEqui ? $('#txtIdEquipo').val().trim() : $('#cllIdEquipo').text().trim();
@@ -1812,9 +1742,6 @@ function validacionAgregarConcepto(){
                 }
             });
         }
-
-
-
         if(!Concepto.sitio)
         {
             alert("Por favor seleccione sitio del servicio a realizarse");
@@ -1825,7 +1752,6 @@ function validacionAgregarConcepto(){
             alert("Por favor ingrese precio unitario");
             return;
         }
-
         var existe = false;
         //VALIDACION REPETICION ID
         if(Concepto.atributos.ID)
@@ -1836,8 +1762,7 @@ function validacionAgregarConcepto(){
                 //alert(elem.dataset.atributos):
                 if(JSON.parse(elem.dataset.atributos).ID == Concepto.atributos.ID)
                 {
-                    
-                    existe = true;
+                  existe = true;
                 }
             });
         }
@@ -1853,21 +1778,15 @@ function validacionAgregarConcepto(){
             Concepto.id = 0;
             agregarConcepto(Concepto);
         }
-    }
-
-    
-    
+    } 
 }
 
 function agregarConcepto(Concepto){
-    //////////////////////////////////////////////////////////////////
-
     $('#btnVerPDF').hide();
     $('#btnSolAprob').hide();
 
     var tab = $('#tblConceptos tbody')[0];
     var ren = tab.insertRow(tab.rows.length);
-    
     
     ren.dataset.registro = Concepto.id;
     ren.dataset.cantidad = Concepto.cantidad;
@@ -1896,7 +1815,6 @@ function agregarConcepto(Concepto){
     c1.innerHTML = 0;
     c2.innerHTML = '<input name="txtCant" style="text-align:center;" type="number" min="1" class="form-control iptChange" value="' + Concepto.cantidad + '" ' + RO + '>';
     
-    
     c3.innerHTML = Concepto.descripcion + "<br>";
     c3.innerHTML += cellText.substring(0, cellText.length - 1);
     if(Concepto.servicios.length > 0)
@@ -1920,7 +1838,6 @@ function agregarConcepto(Concepto){
     //c8.innerHTML = '<input name="txtPU" style="text-align:right;" type="number" class="form-control iptChange" value="' + parseFloat(Concepto.precio_unitario).toFixed(2) + '" oninput="validarDigitos(this, 9)">';
     c8.innerHTML = '<input name="txtPU" style="text-align:right;" type="text" class="form-control iptChange" value="' + parseFloat(Concepto.precio_unitario).toFixed(2) + '" oninput="validarDecimal(this, 7, 2)">';
     c9.innerHTML = '<button onclick="eliminarConcepto(this)" style="margin-left: 10px;' + btnDel + '" type="button" class="btn btn-danger btn-xs eliminar"><i class="fa fa-minus"></i></button>';
-    
 
     $(ren).find('select[name="opSitio"]').val(Concepto.sitio);
     
@@ -1940,8 +1857,6 @@ function agregarConcepto(Concepto){
 }
 
 function agregarConceptoOtro(Concepto){
-    //////////////////////////////////////////////////////////////////
-
     var tipo = JSON.parse(Concepto.atributos).otro;
 
     $('#btnVerPDF').hide();
@@ -1966,7 +1881,6 @@ function agregarConceptoOtro(Concepto){
     var c8 = ren.insertCell();
     var c9 = ren.insertCell();
 
-
     c1.innerHTML = 0;
     c2.innerHTML = '';
     c3.innerHTML = tipo == 'CABEZAL' ? '<b>Cabezal: ' + Concepto.descripcion + '</b>' : '============ S E P A R A D O R ============';
@@ -1981,9 +1895,7 @@ function agregarConceptoOtro(Concepto){
 
     numerarTabla();
 }
-
 ////////////// NUEVA REVISION
-
 function nuevaRevision(){
     if(confirm("¿Desea crear una nueva revisión?"))
     {
@@ -2001,14 +1913,12 @@ function nuevaRevision(){
         $('#tblConceptos tbody select').attr('disabled', false);
     }
 }
-
 function cancelarRevision(){
     if(confirm("¿Desea cancelar la revisión actual?"))
     {
         $.redirect( base_url + "cotizaciones/ver_cotizacion", { 'id': ID });
     }
 }
-
 function cambiarRevision(opt){
     cargarConceptos($(opt).val());
 
@@ -2031,7 +1941,6 @@ function cambiarRevision(opt){
     }
     
 }
-
 function numerarTabla(){
     var tab = $('#tblConceptos')[0];
     var i = 1;
@@ -2043,14 +1952,11 @@ function numerarTabla(){
         }
     });
 }
-
 function ver_pdf(){
     var rev_act = $("#optRevision").val();
     $.redirect(base_url + "cotizaciones/cotizacion_pdf/" + ID + "-" + rev_act, null, null, '_blank');
 }
-
 ////////////// ACEPTAR
-
 function validacion(){
     if(!$('#btnClientes').data('id'))
     {
@@ -2062,14 +1968,12 @@ function validacion(){
         alert("Seleccione Contactos");
         return false;
     }
-
     var rows = $('#tblConceptos tbody tr:visible');
     if(rows.length <= 0)
     {
         alert("La tabla Conceptos se encuentra vacia");
         return false;
     }
-
     for (let index = 0; index < rows.length; index++)
     {
         var attr = $(rows[index]).data('atributos');
@@ -2096,11 +2000,7 @@ function validacion(){
                 return false;
             }
         }
-
-    }
-
-       		
-	 
+    }      		
    return confirm("¿Desea continuar?");
 }
 function confirmarIVA() {
@@ -2130,14 +2030,9 @@ function confirmarIVA() {
                         box.value = oldValue;
                     }
                 }
-            
-    
-    
-    
 }
 
 function crearCotizacion(){
-
     if(validacion()){
 
         var cotizacion = {};
@@ -2184,7 +2079,6 @@ function crearCotizacion(){
             
             conceptos.push(concepto);
         }
-
         /////////////////////////////////////////////////////
         var URL = base_url + "cotizaciones/ajax_setCotizacion";
         $.ajax({
@@ -2202,11 +2096,8 @@ function crearCotizacion(){
                 console.log(data);
             },
         });
-
     }
-
 }
-
 function guardarCotizacion(){
     if(validacion()){
         var cotizacion = {};
@@ -2244,7 +2135,6 @@ function guardarCotizacion(){
             
             conceptos.push(concepto);
         }
-
         /////////////////////////////////////////////////////
         var URL = base_url + "cotizaciones/ajax_setCotizacion";
         $.ajax({
@@ -2263,9 +2153,7 @@ function guardarCotizacion(){
                 console.log(data);
             },
         });
-
     }
-
 }
 
 function crearRevision(){
@@ -2527,15 +2415,11 @@ function reactivarCotizacion(){
         if(COTIZACION.UltRev > 0)
         {
             cotizacion.estatus = "EN REVISION";
-        }
-        
-        
+        }    
         cotizacion.bitacora_estatus = JSON.parse(COTIZACION.bitacora_estatus);
         cotizacion.bitacora_estatus.push([cotizacion.estatus, moment().format('D/MM/YYYY h:mm A'), ID_USER]);
         cotizacion.bitacora_estatus = JSON.stringify(cotizacion.bitacora_estatus);
         
-        
-
         /////////////////////////////////////////////////////
         var URL = base_url + "cotizaciones/ajax_setCotizacion";
         $.ajax({
@@ -2591,9 +2475,7 @@ function confirmarCotizacion(){
         });
     //}
 }
-
 ////////////// CORREO
-
 function mdlCorreo(){
     setCorreoTexto($('#opTipo').val());
     $('#mdlCorreo').modal();
@@ -2730,8 +2612,8 @@ function guardarPONumbers(){
             
             conceptos.push(concepto);
         }
-alert(JSON.stringify(cotizacion));
-alert(JSON.stringify(conceptos));
+/*alert(JSON.stringify(cotizacion));
+alert(JSON.stringify(conceptos));*/
         /////////////////////////////////////////////////////
         var URL = base_url + "cotizaciones/ajax_setCotizacion";
         $.ajax({
@@ -2801,9 +2683,6 @@ function evaluarCierre(){
                         pos++;
                     }
                 });
-
-
-
                 if(pos == 0)
                 {
                     $('#btnAutorizado').hide();
@@ -2821,8 +2700,6 @@ function evaluarCierre(){
                     $('#btnAutorizado').val("Total");
                     $('#btnAutorizado').show();
                 }
-                
-
             }
         },
         error: function(data){
@@ -2834,7 +2711,6 @@ function evaluarCierre(){
 
 function mdlAutorizar(btn){
     var tipo = $(btn).val();
-
 
     $('#mdlAtorizacion .modal-title').text("Aprobación " + tipo);
     if (COTIZACION.prospecto == 1) {
@@ -2884,8 +2760,6 @@ function autorizar(){
             console.log(data);
         },
     });
-
-
 }
 
 function cerrar(){
@@ -2940,8 +2814,6 @@ function crearAccion(){
     var data = {};
     var responsable = $('#responsable').val();
     var enviar_contacto = $('#cbEnviarContacto').is(':checked') ? 1 : 0;
-
-
     data.idCot = ID;
     data.accion = $('#txtAccion').val().trim();
     data.fecha_limite = $('#txtFechaAccion').val();
@@ -2976,7 +2848,6 @@ function crearAccion(){
     });
 }
 }
-
 function cargarAcciones(){
 
     $("#tblAcciones tbody tr").remove();
@@ -3042,17 +2913,8 @@ function btnAccionColor(estatus, fecha_limite, fecha_realizada){
             valor = ['btn-success', 'fa fa-check', 'REALIZADA'];
         }
     }
-
-
-
-
     return valor;
 }
-
-/*function mdlAccion(){
-    $('#mdlAccion').modal();
-}*/
-
 function mdlAccionFeedback(btn){
 
     var ren = $(btn).closest('tr');
@@ -3108,8 +2970,7 @@ function cargarComentariosAccion(id_accion){
             //alert(JSON.stringify(data));
             if(result)
             {
-
-                var rs = JSON.parse(result);
+             var rs = JSON.parse(result);
                 $.each(rs, function(i, elem){
                     var c = '<li>'
                     +    '<a>'
@@ -3156,14 +3017,7 @@ function agregarComentarioAccion(btn){
             }
         }
     });
-
-
 }
-
-
-
-
-
 function realizarAccion(){
     if(confirm("¿Desea marcar acción como realizada?"))
     {
@@ -3285,17 +3139,11 @@ window.location.reload();
                 new PNotify({ title: 'ERROR', text: 'Error', type: 'error', styling: 'bootstrap3' });
                 console.log(data);
             },
-        });
-    
-    
+        });    
 }
 function cargarQrs(){
-        var URL = base_url + "cotizaciones/ajax_getQrs";
-
+var URL = base_url + "cotizaciones/ajax_getQrs";
    var id_cotizacion=COTIZACION.id;
-
-
-
     $.ajax({
             type: "POST",
             url: URL,
@@ -3320,8 +3168,6 @@ function cargarQrs(){
             },
         });
 }
-
-
  function validarDigitos(input, maxDigitos) {
     let valor = input.value.replace(/\D/g, ''); // Elimina caracteres no numéricos
     
@@ -3369,4 +3215,3 @@ function validarDecimal(input, maxEnteros, maxDecimales) {
         input.setCustomValidity("");
     }
 }
-

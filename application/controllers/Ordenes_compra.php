@@ -1420,6 +1420,12 @@ function ajax_retrocederQR(){
     $data2['usuario'] = $this->session->id;
     $data2['comentario'] = "<b><font color=blue>RETROCEDIDO:</font></b> " . $comentarios;
     $this->Conexion->insertar('qr_comentarios', $data2, array('fecha' => 'CURRENT_TIMESTAMP()'));
+    $bitacoraQR = array(
+            'qr' => $id,
+            'user' => $this->session->id,
+            'estatus' => 'RETROCEDER'
+        );
+        $this->compras_model->estatusQR($bitacoraQR);
 }
 
     function ajax_retrocederPO(){
