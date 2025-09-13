@@ -2019,26 +2019,7 @@ function guardarPO(){
 }
 
  function solicitud_pago_pdf($id){
-       /*$query = "SELECT 
-    PO.id, PO.fecha, PO.shipping_address, PO.billing_address, PO.conceptos,
-    PO.subtotal, PO.descuento, PO.impuesto, PO.impuesto_nombre, PO.total,
-    PO.retencion, PO.moneda, PO.rma, PO.fecha_aprobacion,
-    CONCAT(U.nombre, ' ', U.paterno) AS User,
-    U.correo AS UserMail,
-    CONCAT(UA.nombre, ' ', UA.paterno) AS UserA,
-    E.razon_social, E.calle, E.numero, E.numero_interior, E.colonia,
-    E.ciudad, E.estado, E.pais, E.rfc,
-    EC.nombre, EC.telefono, EC.correo,
-    PR.id AS PR_id, PR.qr, PR.destino, PA.item
-FROM ordenes_compra PO
-INNER JOIN empresas E ON PO.proveedor = E.id
-INNER JOIN usuarios U ON U.id = PO.usuario
-INNER JOIN usuarios UA ON UA.id = PO.aprobador
-INNER JOIN empresas_contactos EC ON PO.contacto = EC.id
-INNER JOIN prs PR ON JSON_CONTAINS(PO.prs, CONCAT('\"', PR.id, '\"'), '$')
-left JOIN pr_atributos PA ON JSON_CONTAINS(PO.prs, CONCAT('\"', PA.idPr, '\"'), '$')
-WHERE PO.id = ".$id;*/
-//echo $query;die();
+     
 $query="SELECT 
     PO.id, PO.fecha, PO.shipping_address, PO.billing_address, PO.conceptos,
     PO.subtotal, PO.descuento, PO.impuesto, PO.impuesto_nombre, PO.total,
@@ -2329,7 +2310,9 @@ if (is_array($prs)) {
         $lineasUnicas[] = $line;
     }
 }
-
+$pdf->SetFont('times', '', 11);
+$pdf->MultiCell(120, 6, "* Moneda / Currency: " . $MONEDA, 0, 'L', 0, 1);
+$pdf->Ln(2); // pequeño espacio
 // Finalmente imprimimos solo las únicas
 foreach ($lineasUnicas as $linea) {
     $pdf->MultiCell(120, 6, $linea, 0, 'L', 0, 1);
